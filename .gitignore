@@ -1,0 +1,23 @@
+# Build and bytecode
+target/
+*.class
+*.jar
+*.war
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Configuration files containing credentials
+config.properties
+frontend/config.properties
+backend/config.properties
+*.env
+
+# Local image cache
+.aftercredits/
+
+# Environment files containing credentials
+.env*
