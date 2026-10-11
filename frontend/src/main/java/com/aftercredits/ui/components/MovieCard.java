@@ -2,12 +2,14 @@ package com.aftercredits.ui.components;
 
 import com.aftercredits.model.Movie;
 import com.aftercredits.theme.ThemeManager;
+import com.aftercredits.ui.util.AsyncImageLoader;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.SwingConstants;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Cursor;
@@ -21,15 +23,15 @@ import java.awt.event.MouseEvent;
 import java.util.function.Consumer;
 
 /**
- * Reusable visual card component representing a film.
- * Displays title, release year, director, genre badges, star score, and tagline.
- * Features a smooth cinema banner header and interactive hover effects.
+ * Redesigned visual card component representing a film.
+ * Poster-dominant layout using AsyncImageLoader.
  */
 public class MovieCard extends JPanel {
 
     private final Movie movie;
     private final Consumer<Movie> onSelectCallback;
     private boolean isHovered = false;
+    private JLabel posterLabel;
 
     public MovieCard(Movie movie) {
         this(movie, null);
@@ -39,137 +41,95 @@ public class MovieCard extends JPanel {
         this.movie = movie;
         this.onSelectCallback = onSelectCallback;
 
-        setLayout(new BorderLayout(0, 8));
-        setBackground(ThemeManager.BG_CARD);
-        setBorder(ThemeManager.createCardBorder());
-        setPreferredSize(new Dimension(220, 260));
-        setMinimumSize(new Dimension(190, 240));
+        setLayout(new BorderLayout());
+        setBackground(ThemeManager.BG_PRIMARY); 
+        setPreferredSize(new Dimension(200, 310));
+        setMinimumSize(new Dimension(160, 250));
+        setOpaque(false);
+        setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6)); // Padding for hover highlight
 
-        // 1. Top Poster Placeholder Banner
-        add(createPosterBanner(), BorderLayout.NORTH);
+        // 1. Top Poster Area (2:3 aspect ratio)
+        add(createPosterContainer(), BorderLayout.CENTER);
 
-        // 2. Middle Content Panel (Title, Director, Rating, Tagline)
-        add(createDetailsPanel(), BorderLayout.CENTER);
+        // 2. Bottom Details Area
+        add(createDetailsPanel(), BorderLayout.SOUTH);
 
-        // 3. Bottom Genre Badges
-        add(createGenreTagsPanel(), BorderLayout.SOUTH);
-
-        // Interactive hover & click behavior
         setupInteractions();
     }
 
-    private JPanel createPosterBanner() {
-        // Custom panel painting a stylized cinema slate placeholder
-        JPanel banner = new JPanel() {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+    private JPanel createPosterContainer() {
+        // Container to hold the poster and its overlay
+        RoundedPanel container = new RoundedPanel(ThemeManager.BG_CARD, ThemeManager.CARD_ARC, ThemeManager.BORDER_COLOR);
+        container.setLayout(new BorderLayout());
+        container.setPreferredSize(new Dimension(188, 260));
 
-                // Deep cinematic gradient fill
-                g2.setColor(new Color(20, 25, 34));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+        posterLabel = new JLabel();
+        posterLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        posterLabel.setVerticalAlignment(SwingConstants.CENTER);
+        posterLabel.setLayout(new BorderLayout());
 
-                // Subtle projector light accent line
-                g2.setColor(new Color(45, 55, 72));
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 8, 8);
+        // Overlay Rating Badge on bottom-left of the poster
+        JPanel overlayPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
+        overlayPanel.setOpaque(false);
+        if (movie.rating() > 0) {
+            overlayPanel.add(BadgeLabel.createRatingBadge(movie.rating()));
+        }
+        posterLabel.add(overlayPanel, BorderLayout.SOUTH);
 
-                g2.dispose();
-                super.paintComponent(g);
-            }
-        };
+        container.add(posterLabel, BorderLayout.CENTER);
 
-        banner.setLayout(new BorderLayout());
-        banner.setOpaque(false);
-        banner.setPreferredSize(new Dimension(200, 75));
-        banner.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
+        // Load image using the AsyncImageLoader
+        AsyncImageLoader.loadImage(
+                movie.getPosterUrl("w342"),
+                188, 260, 
+                movie.title(),
+                icon -> {
+                    posterLabel.setIcon(icon);
+                    posterLabel.repaint();
+                }
+        );
 
-        // Clapper / Film icon and Year
-        JLabel iconLabel = new JLabel("🎬");
-        iconLabel.setFont(ThemeManager.FONT_TITLE_LARGE);
-
-        BadgeLabel yearBadge = new BadgeLabel(String.valueOf(movie.year()));
-        BadgeLabel durationBadge = new BadgeLabel(movie.getFormattedDuration());
-
-        JPanel badgesPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
-        badgesPanel.setOpaque(false);
-        badgesPanel.add(yearBadge);
-        badgesPanel.add(durationBadge);
-
-        banner.add(iconLabel, BorderLayout.WEST);
-        banner.add(badgesPanel, BorderLayout.EAST);
-
-        return banner;
+        return container;
     }
 
     private JPanel createDetailsPanel() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setOpaque(false);
+        panel.setBorder(BorderFactory.createEmptyBorder(8, 2, 0, 2));
 
-        // Movie Title
+        // Movie Title (Single line, truncated with ellipsis if too long)
         JLabel titleLabel = new JLabel(movie.title());
-        titleLabel.setFont(ThemeManager.FONT_BODY_BOLD);
+        titleLabel.setFont(ThemeManager.FONT_MOVIE_TITLE);
         titleLabel.setForeground(ThemeManager.TEXT_PRIMARY);
         titleLabel.setAlignmentX(LEFT_ALIGNMENT);
 
-        // Director
-        JLabel directorLabel = new JLabel("Dir. " + movie.director());
-        directorLabel.setFont(ThemeManager.FONT_SMALL);
-        directorLabel.setForeground(ThemeManager.TEXT_MUTED);
-        directorLabel.setAlignmentX(LEFT_ALIGNMENT);
-
-        // Star Rating (Normalized 5-star display)
-        StarRatingBar ratingBar = new StarRatingBar(movie.rating());
-        ratingBar.setAlignmentX(LEFT_ALIGNMENT);
-
-        // Tagline / Synopsis preview
-        String previewText = movie.tagline().isEmpty() ? movie.synopsis() : movie.tagline();
-        JLabel taglineLabel = new JLabel("<html><i>\"" + escapeHtml(previewText) + "\"</i></html>");
-        taglineLabel.setFont(ThemeManager.FONT_SMALL);
-        taglineLabel.setForeground(ThemeManager.TEXT_MUTED);
-        taglineLabel.setAlignmentX(LEFT_ALIGNMENT);
+        // Metadata: Year • Runtime
+        String metaText = movie.year() + " • " + movie.getFormattedDuration();
+        JLabel metaLabel = new JLabel(metaText);
+        metaLabel.setFont(ThemeManager.FONT_METADATA);
+        metaLabel.setForeground(ThemeManager.TEXT_MUTED);
+        metaLabel.setAlignmentX(LEFT_ALIGNMENT);
 
         panel.add(titleLabel);
         panel.add(Box.createVerticalStrut(2));
-        panel.add(directorLabel);
-        panel.add(Box.createVerticalStrut(6));
-        panel.add(ratingBar);
-        panel.add(Box.createVerticalStrut(6));
-        panel.add(taglineLabel);
+        panel.add(metaLabel);
 
         return panel;
     }
 
-    private JPanel createGenreTagsPanel() {
-        JPanel tagsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        tagsPanel.setOpaque(false);
-
-        // Display up to 2 genre tags to maintain clean card margins
-        int count = 0;
-        for (String genre : movie.genres()) {
-            if (count++ >= 2) break;
-            tagsPanel.add(BadgeLabel.createGenreBadge(genre));
-        }
-
-        return tagsPanel;
-    }
-
     private void setupInteractions() {
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-
         addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
                 isHovered = true;
-                setBackground(ThemeManager.BG_CARD_HOVER);
                 repaint();
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
                 isHovered = false;
-                setBackground(ThemeManager.BG_CARD);
                 repaint();
             }
 
@@ -182,9 +142,17 @@ public class MovieCard extends JPanel {
         });
     }
 
-    private String escapeHtml(String text) {
-        if (text == null) return "";
-        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        // Draw subtle hover highlight behind the entire card
+        if (isHovered) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(ThemeManager.BG_CARD_HOVER);
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), ThemeManager.CARD_ARC + 4, ThemeManager.CARD_ARC + 4);
+            g2.dispose();
+        }
     }
 
     public Movie getMovie() {

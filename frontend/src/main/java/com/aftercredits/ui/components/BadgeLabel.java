@@ -19,32 +19,23 @@ public class BadgeLabel extends JLabel {
     private Color badgeBorderColor;
     private final int cornerRadius;
 
-    /**
-     * Creates a standard badge with default muted styling.
-     */
     public BadgeLabel(String text) {
         this(text, ThemeManager.BADGE_BG, ThemeManager.TEXT_MUTED, ThemeManager.BORDER_COLOR);
     }
 
-    /**
-     * Creates a badge with custom background and text color.
-     */
     public BadgeLabel(String text, Color background, Color foreground) {
         this(text, background, foreground, null);
     }
 
-    /**
-     * Full constructor for complete badge styling.
-     */
     public BadgeLabel(String text, Color background, Color foreground, Color borderColor) {
         super(text);
         this.badgeBackground = background;
         this.badgeBorderColor = borderColor;
-        this.cornerRadius = 10;
+        this.cornerRadius = 12; // Increased from 10 to match new design system
 
         setForeground(foreground);
-        setFont(ThemeManager.FONT_SMALL);
-        setOpaque(false); // Required so our custom rounded background paints correctly
+        setFont(ThemeManager.FONT_SECONDARY); // Use new hierarchy
+        setOpaque(false); 
         setBorder(BorderFactory.createEmptyBorder(3, 8, 3, 8));
     }
 
@@ -55,11 +46,19 @@ public class BadgeLabel extends JLabel {
     }
 
     public static BadgeLabel createAccentBadge(String text) {
-        return new BadgeLabel(text, new Color(48, 38, 20), ThemeManager.ACCENT_GOLD, ThemeManager.ACCENT_GOLD_MUTED);
+        return new BadgeLabel(text, ThemeManager.ACCENT_GOLD_BG, ThemeManager.ACCENT_GOLD, ThemeManager.ACCENT_GOLD_MUTED);
     }
 
     public static BadgeLabel createSpoilerBadge() {
         return new BadgeLabel("SPOILER", new Color(60, 22, 22), ThemeManager.SPOILER_ALERT, ThemeManager.SPOILER_ALERT);
+    }
+
+    public static BadgeLabel createRatingBadge(double rating) {
+        return new BadgeLabel(String.format("★ %.1f", rating), ThemeManager.BG_OVERLAY, ThemeManager.ACCENT_GOLD, null);
+    }
+
+    public static BadgeLabel createYearBadge(int year) {
+        return new BadgeLabel(String.valueOf(year), ThemeManager.BADGE_BG, ThemeManager.TEXT_PRIMARY, ThemeManager.BORDER_COLOR);
     }
 
     public void setBadgeColors(Color background, Color foreground, Color border) {
@@ -72,27 +71,22 @@ public class BadgeLabel extends JLabel {
     @Override
     protected void paintComponent(Graphics g) {
         Graphics2D g2 = (Graphics2D) g.create();
-        // Enable anti-aliasing for smooth rounded corners
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         int width = getWidth();
         int height = getHeight();
 
-        // 1. Draw rounded background pill
         if (badgeBackground != null) {
             g2.setColor(badgeBackground);
             g2.fillRoundRect(0, 0, width, height, cornerRadius, cornerRadius);
         }
 
-        // 2. Draw border outline if configured
         if (badgeBorderColor != null) {
             g2.setColor(badgeBorderColor);
             g2.drawRoundRect(0, 0, width - 1, height - 1, cornerRadius, cornerRadius);
         }
 
         g2.dispose();
-
-        // 3. Delegate text rendering to standard JLabel
         super.paintComponent(g);
     }
 }

@@ -24,15 +24,27 @@ import java.util.function.Consumer;
 
 /**
  * Left navigation sidebar component for the AfterCredits application shell.
- * Provides navigation buttons with active highlight states, brand logo,
- * and a bottom user profile snippet.
+ * Redesigned to match the new cinematic visual style with expanded navigation sections.
  */
 public class Sidebar extends JPanel {
 
+    // Main
     public static final String NAV_HOME = "HOME";
     public static final String NAV_DISCOVER = "DISCOVER";
-    public static final String NAV_MY_CINEMA = "MY_CINEMA";
+    // Legacy support
+    public static final String NAV_MY_CINEMA = "MY_CINEMA"; 
+    // My Cinema
+    public static final String NAV_WATCHED = "WATCHED";
+    public static final String NAV_WATCHLIST = "WATCHLIST";
+    public static final String NAV_DIARY = "DIARY";
+    public static final String NAV_COLLECTIONS = "COLLECTIONS";
+    // Community
+    public static final String NAV_FILM_ROOM = "FILM_ROOM";
+    public static final String NAV_REVIEWS = "REVIEWS";
+    public static final String NAV_GROUPS = "GROUPS";
+    // Account
     public static final String NAV_PROFILE = "PROFILE";
+    public static final String NAV_SETTINGS = "SETTINGS";
 
     private final Consumer<String> onNavigateListener;
     private final Map<String, JButton> navButtons = new LinkedHashMap<>();
@@ -43,7 +55,7 @@ public class Sidebar extends JPanel {
 
         setLayout(new BorderLayout());
         setBackground(ThemeManager.BG_SIDEBAR);
-        setPreferredSize(new Dimension(230, 700));
+        setPreferredSize(new Dimension(ThemeManager.SIDEBAR_WIDTH, 700));
         setMinimumSize(new Dimension(210, 600));
         setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, ThemeManager.BORDER_COLOR));
 
@@ -51,7 +63,7 @@ public class Sidebar extends JPanel {
         add(createBrandHeader(), BorderLayout.NORTH);
 
         // 2. Middle Navigation Buttons
-        add(createNavMenu(), BorderLayout.CENTER);
+        add(ThemeManager.createStyledScrollPane(createNavMenu()), BorderLayout.CENTER);
 
         // 3. Bottom User Profile Snippet
         add(createUserFooter(repository.getUserProfile()), BorderLayout.SOUTH);
@@ -64,25 +76,27 @@ public class Sidebar extends JPanel {
         JPanel header = new JPanel();
         header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
         header.setOpaque(false);
-        header.setBorder(BorderFactory.createEmptyBorder(24, 20, 20, 20));
+        header.setBorder(BorderFactory.createEmptyBorder(24, 20, 24, 20));
 
         JPanel logoRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         logoRow.setOpaque(false);
+        logoRow.setAlignmentX(LEFT_ALIGNMENT);
 
         JLabel logoIcon = new JLabel("🎬");
-        logoIcon.setFont(ThemeManager.FONT_TITLE_LARGE);
+        logoIcon.setFont(ThemeManager.FONT_APP_TITLE);
 
         JLabel brandName = new JLabel("AFTERCREDITS");
-        brandName.setFont(ThemeManager.FONT_TITLE);
+        brandName.setFont(ThemeManager.FONT_APP_TITLE);
         brandName.setForeground(ThemeManager.ACCENT_GOLD);
 
         logoRow.add(logoIcon);
         logoRow.add(brandName);
 
         JLabel subtitle = new JLabel("Social Cinema Platform");
-        subtitle.setFont(ThemeManager.FONT_SMALL);
+        subtitle.setFont(ThemeManager.FONT_SECONDARY);
         subtitle.setForeground(ThemeManager.TEXT_MUTED);
-        subtitle.setBorder(BorderFactory.createEmptyBorder(2, 34, 0, 0));
+        subtitle.setBorder(BorderFactory.createEmptyBorder(4, 8, 0, 0));
+        subtitle.setAlignmentX(LEFT_ALIGNMENT);
 
         header.add(logoRow);
         header.add(subtitle);
@@ -96,25 +110,43 @@ public class Sidebar extends JPanel {
         menu.setOpaque(false);
         menu.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
 
-        JLabel sectionLabel = new JLabel("MAIN MENU");
-        sectionLabel.setFont(ThemeManager.FONT_SMALL);
-        sectionLabel.setForeground(ThemeManager.TEXT_MUTED);
-        sectionLabel.setBorder(BorderFactory.createEmptyBorder(0, 10, 8, 0));
-        menu.add(sectionLabel);
-
-        // Add the four active navigation items
+        addSectionHeader(menu, "MAIN");
         addNavButton(menu, NAV_HOME, "🏠  Home");
         addNavButton(menu, NAV_DISCOVER, "🔍  Discover");
-        addNavButton(menu, NAV_MY_CINEMA, "🎞️  My Cinema");
+        menu.add(Box.createVerticalStrut(ThemeManager.SPACING_MD));
+
+        addSectionHeader(menu, "MY CINEMA");
+        addNavButton(menu, NAV_WATCHED, "✓  Watched");
+        addNavButton(menu, NAV_WATCHLIST, "📋  Watchlist");
+        addNavButton(menu, NAV_DIARY, "📔  Diary");
+        addNavButton(menu, NAV_COLLECTIONS, "📁  Collections");
+        menu.add(Box.createVerticalStrut(ThemeManager.SPACING_MD));
+
+        addSectionHeader(menu, "COMMUNITY");
+        addNavButton(menu, NAV_FILM_ROOM, "💬  Film Room");
+        addNavButton(menu, NAV_REVIEWS, "✍️  Reviews");
+        addNavButton(menu, NAV_GROUPS, "👥  Groups");
+        menu.add(Box.createVerticalStrut(ThemeManager.SPACING_MD));
+
+        addSectionHeader(menu, "ACCOUNT");
         addNavButton(menu, NAV_PROFILE, "👤  Profile & DNA");
+        addNavButton(menu, NAV_SETTINGS, "⚙️  Settings");
 
         menu.add(Box.createVerticalGlue());
         return menu;
     }
 
+    private void addSectionHeader(JPanel container, String title) {
+        JLabel sectionLabel = new JLabel(title);
+        sectionLabel.setFont(ThemeManager.FONT_SECONDARY);
+        sectionLabel.setForeground(ThemeManager.TEXT_MUTED);
+        sectionLabel.setBorder(BorderFactory.createEmptyBorder(0, 10, 8, 0));
+        container.add(sectionLabel);
+    }
+
     private void addNavButton(JPanel container, String screenKey, String labelText) {
         JButton btn = new JButton(labelText);
-        btn.setFont(ThemeManager.FONT_BODY_BOLD);
+        btn.setFont(ThemeManager.FONT_BUTTON);
         btn.setHorizontalAlignment(SwingConstants.LEFT);
         btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
         btn.setPreferredSize(new Dimension(200, 40));
@@ -135,6 +167,7 @@ public class Sidebar extends JPanel {
             public void mouseEntered(MouseEvent e) {
                 if (!screenKey.equals(activeScreenKey)) {
                     btn.setBackground(ThemeManager.BG_CARD_HOVER);
+                    btn.setForeground(ThemeManager.TEXT_PRIMARY);
                 }
             }
 
@@ -142,26 +175,27 @@ public class Sidebar extends JPanel {
             public void mouseExited(MouseEvent e) {
                 if (!screenKey.equals(activeScreenKey)) {
                     btn.setBackground(ThemeManager.BG_SIDEBAR);
+                    btn.setForeground(ThemeManager.TEXT_MUTED);
                 }
             }
         });
 
         navButtons.put(screenKey, btn);
         container.add(btn);
-        container.add(Box.createVerticalStrut(6));
+        container.add(Box.createVerticalStrut(2)); // Slight gap between buttons
     }
 
     private JPanel createUserFooter(UserProfile profile) {
         JPanel footer = new JPanel(new BorderLayout(10, 0));
-        footer.setBackground(new Color(15, 19, 26));
+        footer.setBackground(ThemeManager.BG_INPUT);
         footer.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(1, 0, 0, 0, ThemeManager.BORDER_COLOR),
                 BorderFactory.createEmptyBorder(14, 16, 14, 16)
         ));
 
         JLabel avatar = new JLabel("👤", JLabel.CENTER);
-        avatar.setFont(ThemeManager.FONT_BODY_BOLD);
-        avatar.setPreferredSize(new Dimension(32, 32));
+        avatar.setFont(ThemeManager.FONT_SECTION_HEADING);
+        avatar.setPreferredSize(new Dimension(36, 36));
         avatar.setOpaque(true);
         avatar.setBackground(ThemeManager.BG_CARD);
         avatar.setBorder(BorderFactory.createLineBorder(ThemeManager.BORDER_COLOR, 1, true));
@@ -171,14 +205,15 @@ public class Sidebar extends JPanel {
         userDetails.setOpaque(false);
 
         JLabel usernameLabel = new JLabel(profile.username());
-        usernameLabel.setFont(ThemeManager.FONT_BODY_BOLD);
+        usernameLabel.setFont(ThemeManager.FONT_BUTTON);
         usernameLabel.setForeground(ThemeManager.TEXT_PRIMARY);
 
         JLabel identityLabel = new JLabel(profile.cinemaIdentity());
-        identityLabel.setFont(ThemeManager.FONT_SMALL);
-        identityLabel.setForeground(ThemeManager.ACCENT_GOLD);
+        identityLabel.setFont(ThemeManager.FONT_SECONDARY);
+        identityLabel.setForeground(ThemeManager.ACCENT_GOLD_MUTED);
 
         userDetails.add(usernameLabel);
+        userDetails.add(Box.createVerticalStrut(2));
         userDetails.add(identityLabel);
 
         footer.add(avatar, BorderLayout.WEST);

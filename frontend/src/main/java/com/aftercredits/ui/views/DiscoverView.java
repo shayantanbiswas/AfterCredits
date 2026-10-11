@@ -4,292 +4,206 @@ import com.aftercredits.model.Movie;
 import com.aftercredits.repository.CinemaRepository;
 import com.aftercredits.theme.ThemeManager;
 import com.aftercredits.ui.components.MovieCard;
+import com.aftercredits.ui.components.RoundedPanel;
 
-import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTextField;
-import javax.swing.SwingWorker;
-import javax.swing.Timer;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.GridLayout;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 /**
- * The Discover screen for AfterCredits.
- * Supports live international and classic cinema search via TMDB API.
- * Uses a debounce timer and SwingWorker to guarantee that network requests NEVER
- * execute on the Swing Event Dispatch Thread (EDT).
- * Employs monotonic sequence IDs to prevent older search results from overwriting newer ones.
+ * Modern discover view featuring debounced asynchronous search and responsive grid.
  */
 public class DiscoverView extends JPanel {
 
-    private static final String[] GENRE_OPTIONS = {
-            "All", "Sci-Fi", "Drama", "Thriller", "Adventure", "Animation", "Comedy", "Romance", "Crime", "Mystery", "Action"
-    };
-
     private final CinemaRepository repository;
-    private final JTextField searchField;
-    private final JComboBox<String> genreComboBox;
-    private final JLabel resultsCountLabel;
-    private final JPanel cardsGrid;
-    private final JPanel emptyStatePanel;
-
-    // Concurrency & Debounce controls
-    private final Timer searchDebounceTimer;
+    private final Consumer<Movie> onMovieSelected;
     private final AtomicInteger searchSequence = new AtomicInteger(0);
 
-    public DiscoverView(CinemaRepository repository) {
+    private JTextField searchField;
+    private JPanel gridPanel;
+    private JScrollPane scrollPane;
+
+    public DiscoverView(CinemaRepository repository, Consumer<Movie> onMovieSelected) {
         this.repository = repository;
+        this.onMovieSelected = onMovieSelected;
 
         setLayout(new BorderLayout());
         setBackground(ThemeManager.BG_PRIMARY);
+        setBorder(ThemeManager.createViewPadding());
 
-        // Main scrollable container
-        JPanel contentPanel = new JPanel();
-        contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
-        contentPanel.setBackground(ThemeManager.BG_PRIMARY);
-        contentPanel.setBorder(BorderFactory.createEmptyBorder(24, 28, 28, 28));
+        // Header and Search Bar
+        add(createSearchHeader(), BorderLayout.NORTH);
 
-        // 1. Screen Title & Subtitle with TMDB Attribution
-        contentPanel.add(createHeaderPanel());
-        contentPanel.add(Box.createVerticalStrut(18));
-
-        // 2. Interactive Filter & Search Controls Bar
-        this.searchField = new JTextField(16);
-        this.genreComboBox = new JComboBox<>(GENRE_OPTIONS);
-        this.resultsCountLabel = new JLabel("Initialising catalogue...");
-        contentPanel.add(createFilterToolbar());
-        contentPanel.add(Box.createVerticalStrut(16));
-
-        // 3. Movie Grid Container & Empty State
-        this.cardsGrid = new JPanel(new GridLayout(0, 3, 14, 14));
-        this.cardsGrid.setOpaque(false);
-
-        this.emptyStatePanel = createEmptyStatePanel();
-        this.emptyStatePanel.setVisible(false);
-
-        contentPanel.add(emptyStatePanel);
-        contentPanel.add(cardsGrid);
-
-        // 4. Configure Debounce Timer (350ms delay for smooth typing without API flooding)
-        this.searchDebounceTimer = new Timer(350, e -> triggerAsyncSearch());
-        this.searchDebounceTimer.setRepeats(false);
-
-        // Hook up live dynamic filtering
-        setupEventHandlers();
-
-        // Initial catalogue load on background thread
-        triggerAsyncSearch();
-
-        // Wrap in smooth scroll pane
-        JScrollPane scrollPane = new JScrollPane(contentPanel);
-        scrollPane.setBorder(null);
-        scrollPane.getViewport().setBackground(ThemeManager.BG_PRIMARY);
-        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-
+        // Responsive Grid Area
+        gridPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, ThemeManager.CARD_GAP, ThemeManager.CARD_GAP));
+        gridPanel.setOpaque(false);
+        
+        scrollPane = ThemeManager.createStyledScrollPane(gridPanel);
         add(scrollPane, BorderLayout.CENTER);
+
+        // Add component listener to revalidate grid on window resize so FlowLayout re-wraps
+        addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                gridPanel.revalidate();
+                gridPanel.repaint();
+            }
+        });
+
+        // Trigger initial empty search
+        triggerAsyncSearch();
     }
 
-    private JPanel createHeaderPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setOpaque(false);
+    private JPanel createSearchHeader() {
+        JPanel header = new JPanel(new BorderLayout(20, 0));
+        header.setOpaque(false);
+        header.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
 
-        JLabel title = new JLabel("Discover Cinema");
-        title.setFont(ThemeManager.FONT_TITLE_LARGE);
+        JLabel title = new JLabel("Discover");
+        title.setFont(ThemeManager.FONT_PAGE_TITLE);
         title.setForeground(ThemeManager.TEXT_PRIMARY);
+        header.add(title, BorderLayout.WEST);
 
-        JLabel subtitle = new JLabel("Search global cinema across genres, eras, and auteurs (including Satyajit Ray, Hitchcock, and modern releases).");
-        subtitle.setFont(ThemeManager.FONT_BODY);
-        subtitle.setForeground(ThemeManager.TEXT_MUTED);
-
-        JLabel attribution = new JLabel("Metadata & posters provided by TMDB. This product is not certified or endorsed by TMDB.");
-        attribution.setFont(ThemeManager.FONT_SMALL);
-        attribution.setForeground(new Color(110, 125, 145));
-
-        panel.add(title);
-        panel.add(Box.createVerticalStrut(4));
-        panel.add(subtitle);
-        panel.add(Box.createVerticalStrut(2));
-        panel.add(attribution);
-        return panel;
-    }
-
-    private JPanel createFilterToolbar() {
-        JPanel toolbar = new JPanel(new BorderLayout(14, 0));
-        toolbar.setBackground(ThemeManager.BG_CARD);
-        toolbar.setBorder(ThemeManager.createCardBorder());
-        toolbar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 64));
-
-        // Left: Search Field & Genre Dropdown
-        JPanel controls = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-        controls.setOpaque(false);
+        RoundedPanel searchContainer = new RoundedPanel(ThemeManager.BG_INPUT, 20, ThemeManager.BORDER_COLOR);
+        searchContainer.setLayout(new BorderLayout(10, 0));
+        searchContainer.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15));
+        searchContainer.setPreferredSize(new Dimension(300, 40));
 
         JLabel searchIcon = new JLabel("🔍");
-        searchField.putClientProperty("JTextField.placeholderText", "Search by film title or director...");
-        searchField.setPreferredSize(new Dimension(240, 32));
+        searchIcon.setForeground(ThemeManager.TEXT_MUTED);
+        
+        searchField = new JTextField();
+        searchField.setOpaque(false);
+        searchField.setBorder(null);
+        searchField.setForeground(ThemeManager.TEXT_PRIMARY);
+        searchField.setCaretColor(ThemeManager.ACCENT_GOLD);
+        searchField.setFont(ThemeManager.FONT_BODY);
+        
+        Timer debounceTimer = new Timer(350, e -> triggerAsyncSearch());
+        debounceTimer.setRepeats(false);
 
-        JLabel genreLabel = new JLabel("Genre:");
-        genreLabel.setFont(ThemeManager.FONT_BODY_BOLD);
-        genreLabel.setForeground(ThemeManager.TEXT_MUTED);
-
-        genreComboBox.setPreferredSize(new Dimension(130, 32));
-
-        JButton clearBtn = new JButton("Reset");
-        clearBtn.setFont(ThemeManager.FONT_SMALL);
-        clearBtn.addActionListener(e -> {
-            searchField.setText("");
-            genreComboBox.setSelectedIndex(0);
-            triggerAsyncSearch();
-        });
-
-        controls.add(searchIcon);
-        controls.add(searchField);
-        controls.add(Box.createHorizontalStrut(8));
-        controls.add(genreLabel);
-        controls.add(genreComboBox);
-        controls.add(clearBtn);
-
-        // Right: Active Result Counter & Mode Indicator
-        JPanel countPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 8));
-        countPanel.setOpaque(false);
-        resultsCountLabel.setFont(ThemeManager.FONT_SMALL);
-        resultsCountLabel.setForeground(ThemeManager.TEXT_MUTED);
-        countPanel.add(resultsCountLabel);
-
-        toolbar.add(controls, BorderLayout.WEST);
-        toolbar.add(countPanel, BorderLayout.EAST);
-
-        return toolbar;
-    }
-
-    private JPanel createEmptyStatePanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setOpaque(false);
-        panel.setBorder(BorderFactory.createEmptyBorder(40, 0, 40, 0));
-
-        JLabel icon = new JLabel("🎞️", JLabel.CENTER);
-        icon.setFont(ThemeManager.FONT_TITLE_LARGE.deriveFont(32f));
-        icon.setAlignmentX(CENTER_ALIGNMENT);
-
-        JLabel message = new JLabel("No films found matching your search criteria.");
-        message.setFont(ThemeManager.FONT_BODY_BOLD);
-        message.setForeground(ThemeManager.TEXT_PRIMARY);
-        message.setAlignmentX(CENTER_ALIGNMENT);
-
-        JLabel hint = new JLabel("Try searching with an English or original title (e.g. 'Pather Panchali', 'Vertigo', 'Dune').");
-        hint.setFont(ThemeManager.FONT_SMALL);
-        hint.setForeground(ThemeManager.TEXT_MUTED);
-        hint.setAlignmentX(CENTER_ALIGNMENT);
-
-        panel.add(icon);
-        panel.add(Box.createVerticalStrut(8));
-        panel.add(message);
-        panel.add(Box.createVerticalStrut(4));
-        panel.add(hint);
-
-        return panel;
-    }
-
-    private void setupEventHandlers() {
-        // Debounce text field changes to prevent hammering the network
-        searchField.getDocument().addDocumentListener(new DocumentListener() {
+        searchField.addKeyListener(new KeyAdapter() {
             @Override
-            public void insertUpdate(DocumentEvent e) {
-                scheduleSearch();
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                scheduleSearch();
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                scheduleSearch();
+            public void keyReleased(KeyEvent e) {
+                debounceTimer.restart();
             }
         });
 
-        // Genre dropdown changes trigger immediate search
-        genreComboBox.addActionListener(e -> triggerAsyncSearch());
+        searchContainer.add(searchIcon, BorderLayout.WEST);
+        searchContainer.add(searchField, BorderLayout.CENTER);
+
+        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        rightPanel.setOpaque(false);
+        rightPanel.add(searchContainer);
+
+        header.add(rightPanel, BorderLayout.EAST);
+        return header;
     }
 
-    private void scheduleSearch() {
-        resultsCountLabel.setText("Typing...");
-        searchDebounceTimer.restart();
-    }
-
-    /**
-     * Executes repository search on a background worker thread.
-     * Prevents EDT freezing and discards out-of-order responses.
-     */
     private void triggerAsyncSearch() {
-        searchDebounceTimer.stop();
-
-        final String query = searchField.getText();
-        final String selectedGenre = (String) genreComboBox.getSelectedItem();
+        String query = searchField.getText();
         final int currentSeq = searchSequence.incrementAndGet();
 
-        resultsCountLabel.setText("Searching catalogue...");
+        gridPanel.removeAll();
+        gridPanel.add(createLoadingState());
+        gridPanel.revalidate();
+        gridPanel.repaint();
 
         SwingWorker<List<Movie>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<Movie> doInBackground() {
-                // Background execution (off the EDT!)
-                return repository.searchMovies(query, selectedGenre);
+                return repository.searchMovies(query, "All");
             }
 
             @Override
             protected void done() {
-                // Back on the Swing Event Dispatch Thread (EDT)
-                if (currentSeq != searchSequence.get() || isCancelled()) {
-                    // An older request finished after a newer one; discard obsolete results
-                    return;
-                }
+                if (currentSeq != searchSequence.get()) return;
 
                 try {
-                    List<Movie> matchedMovies = get();
-                    cardsGrid.removeAll();
+                    List<Movie> results = get();
+                    gridPanel.removeAll();
 
-                    if (matchedMovies.isEmpty()) {
-                        emptyStatePanel.setVisible(true);
-                        cardsGrid.setVisible(false);
-                        resultsCountLabel.setText("0 films found");
+                    if (results.isEmpty()) {
+                        gridPanel.add(ThemeManager.createEmptyState("🤷", "No movies found", "Try a different search term."));
                     } else {
-                        emptyStatePanel.setVisible(false);
-                        cardsGrid.setVisible(true);
-
-                        boolean isLive = matchedMovies.stream().anyMatch(m -> !m.isMock());
-                        String sourceTag = isLive ? "TMDB Live" : "Offline Demo";
-                        resultsCountLabel.setText("Showing " + matchedMovies.size() + " films (" + sourceTag + ")");
-
-                        for (Movie movie : matchedMovies) {
-                            cardsGrid.add(new MovieCard(movie));
+                        for (Movie m : results) {
+                            gridPanel.add(new MovieCard(m, onMovieSelected));
                         }
                     }
 
-                    cardsGrid.revalidate();
-                    cardsGrid.repaint();
-                } catch (Exception e) {
-                    resultsCountLabel.setText("⚠️ Search error. Using offline fallback.");
+                    // Reset any previously forced size so FlowLayout can compute the correct wrap height
+                    gridPanel.setPreferredSize(null);
+                    gridPanel.revalidate();
+                    gridPanel.repaint();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
                 }
             }
         };
-
         worker.execute();
+    }
+
+    /**
+     * Creates a visually polished loading indicator consistent with ThemeManager's
+     * empty-state style: centred icon, bold status line, and muted hint.
+     */
+    private JPanel createLoadingState() {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setOpaque(false);
+        panel.setBorder(BorderFactory.createEmptyBorder(80, 0, 80, 0));
+
+        // Animated-feel spinner using a rotating clapperboard emoji
+        JLabel spinnerLabel = new JLabel("🎬", JLabel.CENTER);
+        spinnerLabel.setFont(ThemeManager.FONT_PAGE_TITLE.deriveFont(40f));
+        spinnerLabel.setForeground(ThemeManager.ACCENT_GOLD);
+        spinnerLabel.setAlignmentX(CENTER_ALIGNMENT);
+
+        JLabel statusLabel = new JLabel("Searching…");
+        statusLabel.setFont(ThemeManager.FONT_BUTTON);
+        statusLabel.setForeground(ThemeManager.TEXT_PRIMARY);
+        statusLabel.setAlignmentX(CENTER_ALIGNMENT);
+
+        JLabel hintLabel = new JLabel("Fetching results from your cinema library");
+        hintLabel.setFont(ThemeManager.FONT_SECONDARY);
+        hintLabel.setForeground(ThemeManager.TEXT_MUTED);
+        hintLabel.setAlignmentX(CENTER_ALIGNMENT);
+
+        // Animated progress bar using a Swing Timer to cycle dots
+        JLabel dotsLabel = new JLabel("●  ●  ●");
+        dotsLabel.setFont(ThemeManager.FONT_SECONDARY);
+        dotsLabel.setForeground(ThemeManager.TEXT_FAINT);
+        dotsLabel.setAlignmentX(CENTER_ALIGNMENT);
+
+        String[] dotFrames = {"●  ○  ○", "○  ●  ○", "○  ○  ●", "○  ●  ○"};
+        int[] frameIdx = {0};
+        Timer dotTimer = new Timer(300, e -> {
+            dotsLabel.setText(dotFrames[frameIdx[0] % dotFrames.length]);
+            frameIdx[0]++;
+        });
+        dotTimer.start();
+
+        // Stop the timer when this panel is no longer showing (prevents leaks)
+        panel.addAncestorListener(new javax.swing.event.AncestorListener() {
+            @Override public void ancestorAdded(javax.swing.event.AncestorEvent e) { dotTimer.start(); }
+            @Override public void ancestorRemoved(javax.swing.event.AncestorEvent e) { dotTimer.stop(); }
+            @Override public void ancestorMoved(javax.swing.event.AncestorEvent e) {}
+        });
+
+        panel.add(spinnerLabel);
+        panel.add(Box.createVerticalStrut(ThemeManager.SPACING_MD));
+        panel.add(statusLabel);
+        panel.add(Box.createVerticalStrut(ThemeManager.SPACING_XS));
+        panel.add(hintLabel);
+        panel.add(Box.createVerticalStrut(ThemeManager.SPACING_SM));
+        panel.add(dotsLabel);
+
+        return panel;
     }
 }

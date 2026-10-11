@@ -5,32 +5,40 @@ import com.aftercredits.model.UserProfile;
 import com.aftercredits.repository.CinemaRepository;
 import com.aftercredits.theme.ThemeManager;
 import com.aftercredits.ui.components.BadgeLabel;
-import com.aftercredits.ui.components.MovieCard;
-import com.aftercredits.ui.components.StarRatingBar;
+import com.aftercredits.ui.components.HorizontalMovieRow;
+import com.aftercredits.ui.util.AsyncImageLoader;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.Icon;
+import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.GridLayout;
-import java.util.List;
+import java.awt.GradientPaint;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.RenderingHints;
+import java.awt.geom.RoundRectangle2D;
 
 /**
- * The primary dashboard screen for AfterCredits.
- * Features a welcoming header with quick stats, a spotlight feature film banner,
- * and a curated trending cinephile picks section using repository data.
+ * The redesigned dashboard screen for AfterCredits.
+ * Features a cinematic full-width hero banner and horizontally scrolling movie rows.
  */
 public class HomeView extends JPanel {
 
     private final CinemaRepository repository;
+    private final java.util.function.Consumer<Movie> onMovieSelected;
 
-    public HomeView(CinemaRepository repository) {
+    public HomeView(CinemaRepository repository, java.util.function.Consumer<Movie> onMovieSelected) {
         this.repository = repository;
+        this.onMovieSelected = onMovieSelected;
 
         setLayout(new BorderLayout());
         setBackground(ThemeManager.BG_PRIMARY);
@@ -39,26 +47,23 @@ public class HomeView extends JPanel {
         JPanel contentPanel = new JPanel();
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
         contentPanel.setBackground(ThemeManager.BG_PRIMARY);
-        contentPanel.setBorder(BorderFactory.createEmptyBorder(24, 28, 28, 28));
+        contentPanel.setBorder(ThemeManager.createViewPadding());
 
         // 1. Welcome Header & Pulse Metrics
         contentPanel.add(createHeaderSection());
-        contentPanel.add(Box.createVerticalStrut(20));
+        contentPanel.add(Box.createVerticalStrut(ThemeManager.SPACING_XL));
 
-        // 2. Featured Spotlight Film Banner
-        contentPanel.add(createSpotlightBanner());
-        contentPanel.add(Box.createVerticalStrut(28));
+        // 2. Cinematic Hero Banner
+        contentPanel.add(new HeroBannerPanel(repository.getSpotlightMovie()));
+        contentPanel.add(Box.createVerticalStrut(ThemeManager.SPACING_XXL));
 
-        // 3. Trending Cinephile Picks Section
-        contentPanel.add(createTrendingSection());
+        // 3. Horizontal Movie Rows
+        contentPanel.add(new HorizontalMovieRow("Trending Cinephile Picks", repository.getTrendingMovies(), onMovieSelected));
+        contentPanel.add(Box.createVerticalStrut(ThemeManager.SPACING_XXL));
+        contentPanel.add(new HorizontalMovieRow("From Your Watchlist", repository.getWatchlist(), onMovieSelected));
 
-        // Wrap in a smooth scroll pane
-        JScrollPane scrollPane = new JScrollPane(contentPanel);
-        scrollPane.setBorder(null);
-        scrollPane.getViewport().setBackground(ThemeManager.BG_PRIMARY);
-        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-
+        // Wrap in a styled scroll pane
+        JScrollPane scrollPane = ThemeManager.createStyledScrollPane(contentPanel);
         add(scrollPane, BorderLayout.CENTER);
     }
 
@@ -67,6 +72,7 @@ public class HomeView extends JPanel {
 
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
+        header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
 
         // Greeting and subtitle
         JPanel titlesPanel = new JPanel();
@@ -74,7 +80,7 @@ public class HomeView extends JPanel {
         titlesPanel.setOpaque(false);
 
         JLabel welcomeLabel = new JLabel("Welcome back, " + profile.username() + " 👋");
-        welcomeLabel.setFont(ThemeManager.FONT_TITLE_LARGE);
+        welcomeLabel.setFont(ThemeManager.FONT_PAGE_TITLE);
         welcomeLabel.setForeground(ThemeManager.TEXT_PRIMARY);
 
         JLabel subtitleLabel = new JLabel("Here is your cinema pulse and trending community favorites this week.");
@@ -100,93 +106,115 @@ public class HomeView extends JPanel {
         return header;
     }
 
-    private JPanel createSpotlightBanner() {
-        Movie spotlight = repository.getSpotlightMovie();
+    /**
+     * Custom component for the spotlight movie featuring a full-bleed backdrop image
+     * and a gradient overlay for text readability.
+     */
+    private static class HeroBannerPanel extends JPanel {
+        private Image backdropImage;
 
-        JPanel banner = new JPanel(new BorderLayout(20, 0));
-        banner.setBackground(ThemeManager.BG_CARD);
-        banner.setBorder(ThemeManager.createCardBorder());
-        banner.setMaximumSize(new Dimension(Integer.MAX_VALUE, 200));
+        public HeroBannerPanel(Movie movie) {
+            setLayout(new BorderLayout());
+            setOpaque(false);
+            setPreferredSize(new Dimension(800, 380));
+            setMaximumSize(new Dimension(Integer.MAX_VALUE, 380));
+            
+            // Info block positioned at the bottom left
+            JPanel infoBlock = new JPanel();
+            infoBlock.setLayout(new BoxLayout(infoBlock, BoxLayout.Y_AXIS));
+            infoBlock.setOpaque(false);
+            infoBlock.setBorder(BorderFactory.createEmptyBorder(0, 32, 32, 32));
 
-        // Left Accent Visual Block
-        JPanel visualBlock = new JPanel(new BorderLayout());
-        visualBlock.setPreferredSize(new Dimension(140, 150));
-        visualBlock.setBackground(ThemeManager.BG_PRIMARY);
-        visualBlock.setBorder(BorderFactory.createLineBorder(ThemeManager.BORDER_COLOR, 1, true));
+            // Meta tags row
+            JPanel tagRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+            tagRow.setOpaque(false);
+            tagRow.setAlignmentX(LEFT_ALIGNMENT);
+            tagRow.add(BadgeLabel.createAccentBadge("FEATURED SPOTLIGHT"));
+            tagRow.add(BadgeLabel.createYearBadge(movie.year()));
+            tagRow.add(BadgeLabel.createGenreBadge(movie.getFormattedDuration()));
+            tagRow.add(BadgeLabel.createRatingBadge(movie.rating()));
 
-        JLabel filmIcon = new JLabel("🎬", JLabel.CENTER);
-        filmIcon.setFont(ThemeManager.FONT_TITLE_LARGE.deriveFont(38f));
-        visualBlock.add(filmIcon, BorderLayout.CENTER);
+            // Cinematic Title
+            JLabel titleLabel = new JLabel(movie.title());
+            titleLabel.setFont(ThemeManager.FONT_PAGE_TITLE.deriveFont(42f));
+            titleLabel.setForeground(Color.WHITE);
+            titleLabel.setAlignmentX(LEFT_ALIGNMENT);
 
-        // Center Content Block
-        JPanel infoBlock = new JPanel();
-        infoBlock.setLayout(new BoxLayout(infoBlock, BoxLayout.Y_AXIS));
-        infoBlock.setOpaque(false);
+            // Tagline or Synopsis snippet
+            JLabel taglineLabel = new JLabel(movie.tagline() != null ? movie.tagline() : "Directed by " + movie.director());
+            taglineLabel.setFont(ThemeManager.FONT_SECTION_HEADING);
+            taglineLabel.setForeground(ThemeManager.ACCENT_GOLD);
+            taglineLabel.setAlignmentX(LEFT_ALIGNMENT);
 
-        // Tag row
-        JPanel tagRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        tagRow.setOpaque(false);
-        tagRow.add(BadgeLabel.createAccentBadge("FEATURED SPOTLIGHT"));
-        tagRow.add(new BadgeLabel(String.valueOf(spotlight.year())));
-        tagRow.add(new BadgeLabel(spotlight.getFormattedDuration()));
+            // Call to Action Buttons
+            JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+            actionRow.setOpaque(false);
+            actionRow.setAlignmentX(LEFT_ALIGNMENT);
+            actionRow.add(ThemeManager.createAccentButton("Play Trailer"));
+            actionRow.add(ThemeManager.createGhostButton("+ Watchlist"));
 
-        // Movie Title
-        JLabel titleLabel = new JLabel(spotlight.title());
-        titleLabel.setFont(ThemeManager.FONT_TITLE_LARGE);
-        titleLabel.setForeground(ThemeManager.TEXT_PRIMARY);
+            // Assemble info block
+            infoBlock.add(tagRow);
+            infoBlock.add(Box.createVerticalStrut(12));
+            infoBlock.add(titleLabel);
+            infoBlock.add(Box.createVerticalStrut(6));
+            infoBlock.add(taglineLabel);
+            infoBlock.add(Box.createVerticalStrut(24));
+            infoBlock.add(actionRow);
 
-        // Director
-        JLabel directorLabel = new JLabel("Directed by " + spotlight.director() + " • " + spotlight.getGenresFormatted());
-        directorLabel.setFont(ThemeManager.FONT_BODY);
-        directorLabel.setForeground(ThemeManager.TEXT_MUTED);
+            add(infoBlock, BorderLayout.SOUTH);
 
-        // Synopsis
-        JLabel synopsisLabel = new JLabel("<html><body style='width: 520px;'>" + spotlight.synopsis() + "</body></html>");
-        synopsisLabel.setFont(ThemeManager.FONT_BODY);
-        synopsisLabel.setForeground(ThemeManager.TEXT_MUTED);
-
-        // Star Rating
-        StarRatingBar ratingBar = new StarRatingBar(spotlight.rating());
-
-        infoBlock.add(tagRow);
-        infoBlock.add(Box.createVerticalStrut(6));
-        infoBlock.add(titleLabel);
-        infoBlock.add(Box.createVerticalStrut(2));
-        infoBlock.add(directorLabel);
-        infoBlock.add(Box.createVerticalStrut(8));
-        infoBlock.add(synopsisLabel);
-        infoBlock.add(Box.createVerticalStrut(8));
-        infoBlock.add(ratingBar);
-
-        banner.add(visualBlock, BorderLayout.WEST);
-        banner.add(infoBlock, BorderLayout.CENTER);
-
-        return banner;
-    }
-
-    private JPanel createTrendingSection() {
-        JPanel section = new JPanel();
-        section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
-        section.setOpaque(false);
-
-        // Section Title
-        JLabel sectionTitle = new JLabel("Trending Cinephile Picks");
-        sectionTitle.setFont(ThemeManager.FONT_TITLE);
-        sectionTitle.setForeground(ThemeManager.TEXT_PRIMARY);
-        section.add(sectionTitle);
-        section.add(Box.createVerticalStrut(14));
-
-        // Grid of Trending Movie Cards
-        List<Movie> trending = repository.getTrendingMovies();
-        int columns = Math.min(3, Math.max(1, trending.size()));
-        JPanel grid = new JPanel(new GridLayout(0, columns, 14, 14));
-        grid.setOpaque(false);
-
-        for (Movie movie : trending) {
-            grid.add(new MovieCard(movie));
+            // Asynchronously load the high-res backdrop
+            AsyncImageLoader.loadImage(
+                    movie.getBackdropUrl("w1280"),
+                    1200, 500, // Request large size for crisp rendering
+                    movie.title(),
+                    icon -> {
+                        if (icon instanceof ImageIcon) {
+                            this.backdropImage = ((ImageIcon) icon).getImage();
+                            repaint();
+                        }
+                    }
+            );
         }
 
-        section.add(grid);
-        return section;
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int w = getWidth();
+            int h = getHeight();
+
+            // 1. Clip bounds for rounded corners
+            RoundRectangle2D.Float clipShape = new RoundRectangle2D.Float(0, 0, w, h, ThemeManager.CARD_ARC, ThemeManager.CARD_ARC);
+            g2.setClip(clipShape);
+
+            // 2. Draw backdrop image or fallback solid color
+            if (backdropImage != null) {
+                // Scaled draw to fill the component
+                g2.drawImage(backdropImage, 0, 0, w, h, this);
+            } else {
+                g2.setColor(ThemeManager.BG_CARD);
+                g2.fillRect(0, 0, w, h);
+            }
+
+            // 3. Draw gradient overlay to ensure text readability
+            // Gradient from fully transparent top to dark primary background at the bottom
+            GradientPaint gradient = new GradientPaint(
+                    0, h * 0.2f, new Color(15, 18, 24, 0),
+                    0, h, new Color(15, 18, 24, 255) // Match ThemeManager.BG_PRIMARY
+            );
+            g2.setPaint(gradient);
+            g2.fillRect(0, 0, w, h);
+
+            // 4. Reset clip and draw subtle border
+            g2.setClip(null);
+            g2.setColor(ThemeManager.BORDER_COLOR);
+            g2.drawRoundRect(0, 0, w - 1, h - 1, ThemeManager.CARD_ARC, ThemeManager.CARD_ARC);
+
+            g2.dispose();
+        }
     }
 }
