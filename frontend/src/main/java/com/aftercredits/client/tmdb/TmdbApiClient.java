@@ -13,6 +13,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -122,7 +124,7 @@ public class TmdbApiClient {
         }
 
         try {
-            String url = buildRequestUrl("/movie/" + tmdbId + "?append_to_response=credits,external_ids&language=en-US");
+            String url = buildRequestUrl("/movie/" + tmdbId + "?append_to_response=credits,external_ids,videos&language=en-US");
             String json = executeGet(url);
             return Optional.ofNullable(parseMovieDetail(json));
         } catch (Exception e) {
@@ -218,6 +220,90 @@ public class TmdbApiClient {
         }
 
         return results;
+    }
+
+    /**
+     * Fetches currently popular movies.
+     */
+    public List<Movie> getPopularMovies() throws Exception {
+        if (!hasApiKey()) {
+            return Collections.emptyList();
+        }
+
+        String url = buildRequestUrl("/movie/popular?language=en-US&page=1");
+        String json = executeGet(url);
+        return parseSearchResponse(json);
+    }
+
+    /**
+     * Fetches the highest-rated movies.
+     */
+    public List<Movie> getTopRatedMovies() throws Exception {
+        if (!hasApiKey()) {
+            return Collections.emptyList();
+        }
+
+        String url = buildRequestUrl("/movie/top_rated?language=en-US&page=1");
+        String json = executeGet(url);
+        return parseSearchResponse(json);
+    }
+
+    /**
+     * Fetches movies currently playing in India.
+     * TMDB's regional listing is not a guarantee of nearby cinema showtimes.
+     */
+    public List<Movie> getNowPlayingMovies() throws Exception {
+        if (!hasApiKey()) {
+            return Collections.emptyList();
+        }
+
+        String url = buildRequestUrl("/movie/now_playing?language=en-US&region=IN&page=1");
+        String json = executeGet(url);
+        return parseSearchResponse(json);
+    }
+
+    /**
+     * Fetches upcoming India-region releases within the next 90 days.
+     */
+    public List<Movie> getUpcomingMovies() throws Exception {
+        if (!hasApiKey()) {
+            return Collections.emptyList();
+        }
+
+        String url = buildRequestUrl("/movie/upcoming?language=en-US&region=IN&page=1");
+        String json = executeGet(url);
+        return filterUpcomingMovies(parseSearchResponse(json), LocalDate.now());
+    }
+
+    /**
+     * Keeps movies with valid release dates from today through the next 90 days.
+     * Package-private so the date window can be tested without network calls.
+     */
+    List<Movie> filterUpcomingMovies(List<Movie> movies, LocalDate today) {
+        if (movies == null || today == null) {
+            return Collections.emptyList();
+        }
+
+        LocalDate endDate = today.plusDays(90);
+        List<Movie> filtered = new ArrayList<>();
+
+        for (Movie movie : movies) {
+            if (movie == null || movie.releaseDate().isBlank()) {
+                continue;
+            }
+
+            try {
+                LocalDate releaseDate = LocalDate.parse(movie.releaseDate());
+                if (!releaseDate.isBefore(today) && !releaseDate.isAfter(endDate)) {
+                    filtered.add(movie);
+                }
+            } catch (DateTimeParseException ignored) {
+                // Ignore missing or malformed release dates.
+            }
+        }
+
+        filtered.sort((a, b) -> a.releaseDate().compareTo(b.releaseDate()));
+        return filtered;
     }
 
     /**

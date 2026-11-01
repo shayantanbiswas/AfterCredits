@@ -56,6 +56,7 @@ public class Sidebar extends JPanel {
         setLayout(new BorderLayout());
         setBackground(ThemeManager.BG_SIDEBAR);
         setPreferredSize(new Dimension(ThemeManager.SIDEBAR_WIDTH, 700));
+        setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, ThemeManager.DIVIDER_COLOR));
         setMinimumSize(new Dimension(210, 600));
         setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, ThemeManager.BORDER_COLOR));
 
@@ -76,17 +77,16 @@ public class Sidebar extends JPanel {
         JPanel header = new JPanel();
         header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
         header.setOpaque(false);
-        header.setBorder(BorderFactory.createEmptyBorder(24, 20, 24, 20));
+        header.setBorder(BorderFactory.createEmptyBorder(28, 22, 22, 22));
 
         JPanel logoRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         logoRow.setOpaque(false);
         logoRow.setAlignmentX(LEFT_ALIGNMENT);
 
-        JLabel logoIcon = new JLabel("🎬");
-        logoIcon.setFont(ThemeManager.FONT_APP_TITLE);
+        CinemaLogo logoIcon = new CinemaLogo(34);
 
         JLabel brandName = new JLabel("AFTERCREDITS");
-        brandName.setFont(ThemeManager.FONT_APP_TITLE);
+        brandName.setFont(ThemeManager.FONT_APP_TITLE.deriveFont(21f));
         brandName.setForeground(ThemeManager.ACCENT_GOLD);
 
         logoRow.add(logoIcon);
@@ -95,7 +95,7 @@ public class Sidebar extends JPanel {
         JLabel subtitle = new JLabel("Social Cinema Platform");
         subtitle.setFont(ThemeManager.FONT_SECONDARY);
         subtitle.setForeground(ThemeManager.TEXT_MUTED);
-        subtitle.setBorder(BorderFactory.createEmptyBorder(4, 8, 0, 0));
+        subtitle.setBorder(BorderFactory.createEmptyBorder(5, 2, 0, 0));
         subtitle.setAlignmentX(LEFT_ALIGNMENT);
 
         header.add(logoRow);
@@ -108,7 +108,7 @@ public class Sidebar extends JPanel {
         JPanel menu = new JPanel();
         menu.setLayout(new BoxLayout(menu, BoxLayout.Y_AXIS));
         menu.setOpaque(false);
-        menu.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
+        menu.setBorder(BorderFactory.createEmptyBorder(12, 14, 16, 14));
 
         addSectionHeader(menu, "MAIN");
         addNavButton(menu, NAV_HOME, "🏠  Home");
@@ -140,7 +140,7 @@ public class Sidebar extends JPanel {
         JLabel sectionLabel = new JLabel(title);
         sectionLabel.setFont(ThemeManager.FONT_SECONDARY);
         sectionLabel.setForeground(ThemeManager.TEXT_MUTED);
-        sectionLabel.setBorder(BorderFactory.createEmptyBorder(0, 10, 8, 0));
+        sectionLabel.setBorder(BorderFactory.createEmptyBorder(12, 10, 8, 0));
         container.add(sectionLabel);
     }
 
@@ -148,11 +148,11 @@ public class Sidebar extends JPanel {
         JButton btn = new JButton(labelText);
         btn.setFont(ThemeManager.FONT_BUTTON);
         btn.setHorizontalAlignment(SwingConstants.LEFT);
-        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-        btn.setPreferredSize(new Dimension(200, 40));
+        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
+        btn.setPreferredSize(new Dimension(200, 44));
         btn.setFocusPainted(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btn.setBorder(BorderFactory.createEmptyBorder(8, 14, 8, 14));
+        btn.setBorder(BorderFactory.createEmptyBorder(9, 14, 9, 14));
 
         btn.addActionListener(e -> {
             setActiveScreen(screenKey);
@@ -233,7 +233,7 @@ public class Sidebar extends JPanel {
             boolean isSelected = entry.getKey().equals(screenKey);
 
             if (isSelected) {
-                btn.setBackground(ThemeManager.BG_CARD);
+                btn.setBackground(ThemeManager.BG_SELECTED);
                 btn.setForeground(ThemeManager.ACCENT_GOLD);
                 btn.setBorder(BorderFactory.createCompoundBorder(
                         BorderFactory.createMatteBorder(0, 3, 0, 0, ThemeManager.ACCENT_GOLD),
@@ -242,7 +242,7 @@ public class Sidebar extends JPanel {
             } else {
                 btn.setBackground(ThemeManager.BG_SIDEBAR);
                 btn.setForeground(ThemeManager.TEXT_MUTED);
-                btn.setBorder(BorderFactory.createEmptyBorder(8, 14, 8, 14));
+                btn.setBorder(BorderFactory.createEmptyBorder(9, 14, 9, 14));
             }
         }
         repaint();

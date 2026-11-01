@@ -22,6 +22,10 @@ public interface CinemaRepository {
     Optional<Movie> getMovieById(String id);
     List<Movie> searchMovies(String query, String genreFilter);
     List<Movie> getTrendingMovies();
+    List<Movie> getPopularMovies();
+    List<Movie> getTopRatedMovies();
+    List<Movie> getNowPlayingMovies();
+    List<Movie> getUpcomingMovies();
     Movie getSpotlightMovie();
 
     // --- My Cinema (Personal Library) ---

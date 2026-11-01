@@ -1,6 +1,8 @@
 package com.aftercredits.theme;
 
 import com.formdev.flatlaf.FlatDarkLaf;
+import com.formdev.flatlaf.FlatLightLaf;
+import com.formdev.flatlaf.FlatDarculaLaf;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -30,43 +32,45 @@ import java.io.InputStream;
  * All UI components should reference these constants instead of hardcoding values.
  */
 public final class ThemeManager {
+    private static String activeTheme = "Dark";
+
 
     // ═══════════════════════════════════════════════════════════════
     //  COLOR PALETTE — Cinematic Dark Theme
     // ═══════════════════════════════════════════════════════════════
 
     // --- Backgrounds ---
-    public static final Color BG_PRIMARY       = new Color(15, 18, 24);      // Deep Midnight Slate (Canvas)
-    public static final Color BG_SIDEBAR       = new Color(11, 14, 18);      // Darker Midnight (Sidebar)
-    public static final Color BG_CARD          = new Color(24, 29, 38);      // Surface Container for Cards
-    public static final Color BG_CARD_HOVER    = new Color(34, 41, 54);      // Hover state for interactive cards
-    public static final Color BG_INPUT         = new Color(20, 24, 32);      // Input field backgrounds
-    public static final Color BG_SELECTED      = new Color(38, 44, 58);      // Selected item background
-    public static final Color BG_OVERLAY       = new Color(0, 0, 0, 160);    // Semi-transparent overlay
+    public static Color BG_PRIMARY       = new Color(10, 12, 16);      // Deep Midnight Slate (Canvas)
+    public static Color BG_SIDEBAR       = new Color(8, 10, 13);      // Darker Midnight (Sidebar)
+    public static Color BG_CARD          = new Color(20, 23, 30);      // Surface Container for Cards
+    public static Color BG_CARD_HOVER    = new Color(31, 36, 46);      // Hover state for interactive cards
+    public static Color BG_INPUT         = new Color(17, 20, 26);      // Input field backgrounds
+    public static Color BG_SELECTED      = new Color(34, 39, 50);      // Selected item background
+    public static Color BG_OVERLAY       = new Color(0, 0, 0, 160);    // Semi-transparent overlay
 
     // --- Primary Accent: Cinema Gold ---
-    public static final Color ACCENT_GOLD       = new Color(229, 169, 60);   // Primary Brand Accent
-    public static final Color ACCENT_GOLD_MUTED = new Color(175, 125, 40);   // Secondary Gold highlights
-    public static final Color ACCENT_GOLD_BG    = new Color(48, 38, 20);     // Gold-tinted background for badges
+    public static Color ACCENT_GOLD       = new Color(229, 169, 60);   // Primary Brand Accent
+    public static Color ACCENT_GOLD_MUTED = new Color(175, 125, 40);   // Secondary Gold highlights
+    public static Color ACCENT_GOLD_BG    = new Color(48, 38, 20);     // Gold-tinted background for badges
 
     // --- Text ---
-    public static final Color TEXT_PRIMARY  = new Color(240, 243, 246);      // Crisp white-slate text
-    public static final Color TEXT_MUTED    = new Color(140, 150, 165);      // Secondary subtitles, metadata
-    public static final Color TEXT_FAINT    = new Color(90, 100, 115);       // Tertiary hints, disabled text
+    public static Color TEXT_PRIMARY  = new Color(240, 243, 246);      // Crisp white-slate text
+    public static Color TEXT_MUTED    = new Color(151, 160, 174);      // Secondary subtitles, metadata
+    public static Color TEXT_FAINT    = new Color(105, 113, 126);       // Tertiary hints, disabled text
 
     // --- Borders & Dividers ---
-    public static final Color BORDER_COLOR  = new Color(38, 46, 60);         // Card and panel dividers
-    public static final Color DIVIDER_COLOR = new Color(30, 36, 48);         // Section dividers
+    public static Color BORDER_COLOR  = new Color(32, 37, 48);         // Card and panel dividers
+    public static Color DIVIDER_COLOR = new Color(24, 28, 37);         // Section dividers
 
     // --- Semantic Colors ---
-    public static final Color SUCCESS       = new Color(72, 187, 120);       // Subtle green
-    public static final Color WARNING       = new Color(236, 178, 46);       // Subtle amber
-    public static final Color ERROR         = new Color(220, 80, 70);        // Subtle red
-    public static final Color SPOILER_ALERT = ERROR;                          // Warning tag for movie spoilers
+    public static Color SUCCESS       = new Color(72, 187, 120);       // Subtle green
+    public static Color WARNING       = new Color(236, 178, 46);       // Subtle amber
+    public static Color ERROR         = new Color(220, 80, 70);        // Subtle red
+    public static Color SPOILER_ALERT = ERROR;                          // Warning tag for movie spoilers
 
     // --- Component-Specific ---
-    public static final Color BADGE_BG      = new Color(32, 40, 52);         // Pill/Badge container background
-    public static final Color RATING_STAR   = ACCENT_GOLD;                    // Filled star color
+    public static Color BADGE_BG      = new Color(27, 32, 41);         // Pill/Badge container background
+    public static Color RATING_STAR   = ACCENT_GOLD;                    // Filled star color
 
     // ═══════════════════════════════════════════════════════════════
     //  SPACING SYSTEM
@@ -80,10 +84,10 @@ public final class ThemeManager {
     public static final int SPACING_XXL = 36;
 
     // --- Component Geometry ---
-    public static final int CARD_ARC       = 12;    // Rounded corner radius for cards
-    public static final int BUTTON_ARC     = 8;     // Rounded corner radius for buttons
+    public static final int CARD_ARC       = 14;    // Rounded corner radius for cards
+    public static final int BUTTON_ARC     = 10;     // Rounded corner radius for buttons
     public static final int SIDEBAR_WIDTH  = 240;   // Sidebar preferred width
-    public static final int CARD_GAP       = 14;    // Gap between cards in grids
+    public static final int CARD_GAP       = 16;    // Gap between cards in grids
 
     // ═══════════════════════════════════════════════════════════════
     //  TYPOGRAPHY — Inter Font Family
@@ -129,28 +133,13 @@ public final class ThemeManager {
      * Falls back to system "Segoe UI" (Windows) or default sans-serif if unavailable.
      */
     private static void loadInterFont() {
-        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-
-        interRegular  = loadFontResource("/fonts/inter/Inter-Regular.otf", ge);
-        interMedium   = loadFontResource("/fonts/inter/Inter-Medium.otf", ge);
-        interSemiBold = loadFontResource("/fonts/inter/Inter-SemiBold.otf", ge);
-        interBold     = loadFontResource("/fonts/inter/Inter-Bold.otf", ge);
-
-        if (interRegular != null) {
-            primaryFontFamily = interRegular.getFamily();
-        } else {
-            // Fallback chain: Segoe UI (Windows) → Liberation Sans → default sans-serif
-            String[] fallbackFonts = {"Segoe UI", "Liberation Sans", "Helvetica Neue"};
-            String[] available = ge.getAvailableFontFamilyNames();
-            for (String candidate : fallbackFonts) {
-                for (String installed : available) {
-                    if (installed.equalsIgnoreCase(candidate)) {
-                        primaryFontFamily = installed;
-                        return;
-                    }
-                }
-            }
-        }
+        // The bundled OTF files use a font format that this Java runtime
+        // rejects. Use the native macOS-friendly sans-serif fallback instead.
+        primaryFontFamily = Font.SANS_SERIF;
+        interRegular = null;
+        interMedium = null;
+        interSemiBold = null;
+        interBold = null;
     }
 
     private static Font loadFontResource(String resourcePath, GraphicsEnvironment ge) {
@@ -219,17 +208,82 @@ public final class ThemeManager {
      * Initializes the FlatLaf dark theme and configures global UI properties.
      * Must be called on or before the EDT before constructing any Swing frames.
      */
+    public static String getTheme() {
+        return activeTheme;
+    }
+
+    public static void setTheme(String theme) {
+        if (theme == null) return;
+        if (!theme.equals("Dark") && !theme.equals("Dim") && !theme.equals("Light")) return;
+
+        activeTheme = theme;
+
+        if ("Light".equals(theme)) {
+            BG_PRIMARY = new Color(245, 246, 248);
+            BG_SIDEBAR = new Color(235, 237, 241);
+            BG_CARD = new Color(255, 255, 255);
+            BG_CARD_HOVER = new Color(239, 241, 245);
+            BG_INPUT = new Color(250, 250, 252);
+            BG_SELECTED = new Color(226, 230, 237);
+            BG_OVERLAY = new Color(0, 0, 0, 100);
+            TEXT_PRIMARY = new Color(28, 31, 38);
+            TEXT_MUTED = new Color(90, 98, 110);
+            TEXT_FAINT = new Color(130, 137, 148);
+            BORDER_COLOR = new Color(215, 219, 226);
+            DIVIDER_COLOR = new Color(225, 228, 233);
+            BADGE_BG = new Color(235, 238, 243);
+        } else if ("Dim".equals(theme)) {
+            BG_PRIMARY = new Color(27, 29, 35);
+            BG_SIDEBAR = new Color(22, 24, 29);
+            BG_CARD = new Color(37, 40, 47);
+            BG_CARD_HOVER = new Color(48, 52, 61);
+            BG_INPUT = new Color(31, 34, 40);
+            BG_SELECTED = new Color(53, 58, 68);
+            BG_OVERLAY = new Color(0, 0, 0, 140);
+            TEXT_PRIMARY = new Color(226, 229, 234);
+            TEXT_MUTED = new Color(163, 170, 181);
+            TEXT_FAINT = new Color(122, 130, 143);
+            BORDER_COLOR = new Color(53, 58, 68);
+            DIVIDER_COLOR = new Color(43, 47, 56);
+            BADGE_BG = new Color(42, 46, 54);
+        } else {
+            BG_PRIMARY = new Color(10, 12, 16);
+            BG_SIDEBAR = new Color(8, 10, 13);
+            BG_CARD = new Color(20, 23, 30);
+            BG_CARD_HOVER = new Color(31, 36, 46);
+            BG_INPUT = new Color(17, 20, 26);
+            BG_SELECTED = new Color(34, 39, 50);
+            BG_OVERLAY = new Color(0, 0, 0, 160);
+            TEXT_PRIMARY = new Color(240, 243, 246);
+            TEXT_MUTED = new Color(151, 160, 174);
+            TEXT_FAINT = new Color(105, 113, 126);
+            BORDER_COLOR = new Color(32, 37, 48);
+            DIVIDER_COLOR = new Color(24, 28, 37);
+            BADGE_BG = new Color(27, 32, 41);
+        }
+
+        SPOILER_ALERT = ERROR;
+        RATING_STAR = ACCENT_GOLD;
+        initializeTheme();
+    }
+
     public static void initializeTheme() {
-        FlatDarkLaf.setup();
+        if ("Light".equals(activeTheme)) {
+            FlatLightLaf.setup();
+        } else if ("Dim".equals(activeTheme)) {
+            FlatDarculaLaf.setup();
+        } else {
+            FlatDarkLaf.setup();
+        }
 
         // Modern UI design properties (rounded corners, clean scrollbars)
         UIManager.put("Button.arc", BUTTON_ARC);
         UIManager.put("Component.arc", BUTTON_ARC);
         UIManager.put("TextComponent.arc", BUTTON_ARC);
         UIManager.put("ScrollBar.thumbArc", BUTTON_ARC);
-        UIManager.put("ScrollBar.width", 10);
+        UIManager.put("ScrollBar.width", 8);
         UIManager.put("ScrollBar.track", BG_PRIMARY);
-        UIManager.put("ScrollBar.thumb", new Color(55, 65, 80));
+        UIManager.put("ScrollBar.thumb", new Color(62, 70, 84));
         UIManager.put("TabbedPane.showTabSeparators", false); // Cleaner look without dividers
         UIManager.put("TabbedPane.selectedBackground", new Color(0, 0, 0, 0)); // Transparent to avoid box
         UIManager.put("TabbedPane.hoverColor", new Color(255, 255, 255, 10)); // Very faint hover, no solid box
@@ -238,7 +292,7 @@ public final class ThemeManager {
         UIManager.put("TabbedPane.tabHeight", 40);
         UIManager.put("TabbedPane.underlineColor", ACCENT_GOLD);
         UIManager.put("TabbedPane.contentAreaColor", BG_PRIMARY);
-        UIManager.put("Table.alternateRowColor", new Color(20, 24, 32));
+        UIManager.put("Table.alternateRowColor", new Color(17, 20, 26));
 
         // Set default font for all components
         if (interRegular != null) {
@@ -446,7 +500,7 @@ public final class ThemeManager {
         sp.getVerticalScrollBar().setUnitIncrement(16);
         sp.setHorizontalScrollBarPolicy(javax.swing.JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         // Fix Priority 1: install wheel-event forwarder so clicks over child components scroll correctly
-        com.aftercredits.ui.util.ScrollWheelForwarder.install(sp);
+        // Wheel forwarding disabled temporarily to prevent nested-scroll jitter.
         return sp;
     }
 }

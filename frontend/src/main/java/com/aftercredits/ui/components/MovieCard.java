@@ -43,10 +43,10 @@ public class MovieCard extends JPanel {
 
         setLayout(new BorderLayout());
         setBackground(ThemeManager.BG_PRIMARY); 
-        setPreferredSize(new Dimension(200, 310));
-        setMinimumSize(new Dimension(160, 250));
+        setPreferredSize(new Dimension(204, 332));
+        setMinimumSize(new Dimension(180, 290));
         setOpaque(false);
-        setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6)); // Padding for hover highlight
+        setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4)); // Tight cinematic card framing
 
         // 1. Top Poster Area (2:3 aspect ratio)
         add(createPosterContainer(), BorderLayout.CENTER);
@@ -55,13 +55,35 @@ public class MovieCard extends JPanel {
         add(createDetailsPanel(), BorderLayout.SOUTH);
 
         setupInteractions();
+        installClickForwarders(this);
+    }
+
+    private void installClickForwarders(java.awt.Component component) {
+        if (component == this) {
+            // The outer card already has its click listener.
+        } else {
+            component.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    if (onSelectCallback != null) {
+                        onSelectCallback.accept(movie);
+                    }
+                }
+            });
+        }
+
+        if (component instanceof java.awt.Container container) {
+            for (java.awt.Component child : container.getComponents()) {
+                installClickForwarders(child);
+            }
+        }
     }
 
     private JPanel createPosterContainer() {
         // Container to hold the poster and its overlay
         RoundedPanel container = new RoundedPanel(ThemeManager.BG_CARD, ThemeManager.CARD_ARC, ThemeManager.BORDER_COLOR);
         container.setLayout(new BorderLayout());
-        container.setPreferredSize(new Dimension(188, 260));
+        container.setPreferredSize(new Dimension(196, 274));
 
         posterLabel = new JLabel();
         posterLabel.setHorizontalAlignment(SwingConstants.CENTER);
@@ -69,7 +91,7 @@ public class MovieCard extends JPanel {
         posterLabel.setLayout(new BorderLayout());
 
         // Overlay Rating Badge on bottom-left of the poster
-        JPanel overlayPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
+        JPanel overlayPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 7, 7));
         overlayPanel.setOpaque(false);
         if (movie.rating() > 0) {
             overlayPanel.add(BadgeLabel.createRatingBadge(movie.rating()));
@@ -81,7 +103,7 @@ public class MovieCard extends JPanel {
         // Load image using the AsyncImageLoader
         AsyncImageLoader.loadImage(
                 movie.getPosterUrl("w342"),
-                188, 260, 
+                196, 274, 
                 movie.title(),
                 icon -> {
                     posterLabel.setIcon(icon);
@@ -96,18 +118,18 @@ public class MovieCard extends JPanel {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setOpaque(false);
-        panel.setBorder(BorderFactory.createEmptyBorder(8, 2, 0, 2));
+        panel.setBorder(BorderFactory.createEmptyBorder(9, 2, 0, 2));
 
         // Movie Title (Single line, truncated with ellipsis if too long)
         JLabel titleLabel = new JLabel(movie.title());
-        titleLabel.setFont(ThemeManager.FONT_MOVIE_TITLE);
+        titleLabel.setFont(ThemeManager.FONT_MOVIE_TITLE.deriveFont(14.5f));
         titleLabel.setForeground(ThemeManager.TEXT_PRIMARY);
         titleLabel.setAlignmentX(LEFT_ALIGNMENT);
 
         // Metadata: Year • Runtime
         String metaText = movie.year() + " • " + movie.getFormattedDuration();
         JLabel metaLabel = new JLabel(metaText);
-        metaLabel.setFont(ThemeManager.FONT_METADATA);
+        metaLabel.setFont(ThemeManager.FONT_METADATA.deriveFont(11.5f));
         metaLabel.setForeground(ThemeManager.TEXT_MUTED);
         metaLabel.setAlignmentX(LEFT_ALIGNMENT);
 

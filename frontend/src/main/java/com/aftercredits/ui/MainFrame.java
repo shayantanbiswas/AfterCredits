@@ -60,7 +60,7 @@ public class MainFrame extends JFrame {
         ReviewsView reviewsView = new ReviewsView(repository);
         FilmRoomView filmRoomView = new FilmRoomView(repository);
         GroupsView groupsView = new GroupsView(repository);
-        SettingsView settingsView = new SettingsView(repository);
+        SettingsView settingsView = new SettingsView(repository, this::changeTheme);
 
         // Register main views
         cardsPanel.add(homeView, Sidebar.NAV_HOME);
@@ -90,6 +90,15 @@ public class MainFrame extends JFrame {
     /**
      * Swaps the visible screen using CardLayout and updates sidebar selection styling.
      */
+    private void changeTheme(String theme) {
+        ThemeManager.setTheme(theme);
+
+        MainFrame refreshed = new MainFrame(repository);
+        refreshed.navigateToScreen(lastScreenKey);
+        refreshed.setVisible(true);
+        dispose();
+    }
+
     public void navigateToScreen(String screenKey) {
         if (!screenKey.startsWith("DETAIL_")) {
             lastScreenKey = screenKey;

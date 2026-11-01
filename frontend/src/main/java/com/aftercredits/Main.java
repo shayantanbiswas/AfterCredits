@@ -6,6 +6,7 @@ import com.aftercredits.repository.MockCinemaRepository;
 import com.aftercredits.repository.TmdbCinemaRepository;
 import com.aftercredits.theme.ThemeManager;
 import com.aftercredits.ui.MainFrame;
+import com.aftercredits.ui.LoginFrame;
 
 import javax.swing.SwingUtilities;
 
@@ -42,8 +43,14 @@ public class Main {
 
         // 3. Launch application window safely on the Event Dispatch Thread (EDT)
         SwingUtilities.invokeLater(() -> {
-            MainFrame frame = new MainFrame(activeRepository);
-            frame.setVisible(true);
+            LoginFrame loginFrame = new LoginFrame(
+                    activeRepository,
+                    () -> {
+                        MainFrame frame = new MainFrame(activeRepository);
+                        frame.setVisible(true);
+                    }
+            );
+            loginFrame.setVisible(true);
         });
     }
 }

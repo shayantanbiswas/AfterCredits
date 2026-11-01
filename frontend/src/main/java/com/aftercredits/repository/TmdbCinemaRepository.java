@@ -40,15 +40,18 @@ public class TmdbCinemaRepository implements CinemaRepository {
         this.tmdbClient = tmdbClient;
         this.fallbackRepository = new MockCinemaRepository();
 
-        // Seed initial saved movies from fallback
-        for (Movie m : fallbackRepository.getAllMovies()) {
-            savedMoviesMap.put(m.id(), m);
-        }
-        for (Movie m : fallbackRepository.getWatchlist()) {
-            watchlistIds.add(m.id());
-        }
-        for (Movie m : fallbackRepository.getWatchedMovies()) {
-            watchedMovieRatings.put(m.id(), m.rating());
+        // Offline mode keeps the existing seeded fallback state.
+        // Live mode starts with a genuinely empty user library.
+        if (!isLiveMode()) {
+            for (Movie m : fallbackRepository.getAllMovies()) {
+                savedMoviesMap.put(m.id(), m);
+            }
+            for (Movie m : fallbackRepository.getWatchlist()) {
+                watchlistIds.add(m.id());
+            }
+            for (Movie m : fallbackRepository.getWatchedMovies()) {
+                watchedMovieRatings.put(m.id(), m.rating());
+            }
         }
     }
 
@@ -58,7 +61,9 @@ public class TmdbCinemaRepository implements CinemaRepository {
 
     @Override
     public List<Movie> getAllMovies() {
-        return fallbackRepository.getAllMovies();
+        return isLiveMode()
+                ? java.util.Collections.emptyList()
+                : fallbackRepository.getAllMovies();
     }
 
     @Override
@@ -67,28 +72,48 @@ public class TmdbCinemaRepository implements CinemaRepository {
             return Optional.empty();
         }
 
-        // 1. Check local cache
+        // TMDB list/search results are lightweight records.
+        // Always fetch the full record when opening a TMDB movie so
+        // director, cast, runtime, tagline and IMDb data are populated.
+        if (id.startsWith("tmdb-") && isLiveMode()) {
+            try {
+                int tmdbId = Integer.parseInt(id.substring(5));
+                Optional<Movie> detail = tmdbClient.getMovieDetails(tmdbId);
+
+                if (detail.isPresent()) {
+                    Movie detailedMovie = detail.get();
+                    movieDetailCache.put(id, detailedMovie);
+                    return Optional.of(detailedMovie);
+                }
+            } catch (Exception e) {
+                System.err.println(
+                        "[AfterCredits] Full TMDB movie details unavailable ("
+                                + e.getMessage() + ")"
+                );
+            }
+
+            // If the detail request fails, keep the lightweight cached
+            // movie so the details screen can still open.
+            Movie cached = movieDetailCache.get(id);
+            if (cached != null) {
+                return Optional.of(cached);
+            }
+
+            return Optional.empty();
+        }
+
+        // Local/offline records can use the cache directly.
         if (movieDetailCache.containsKey(id)) {
             return Optional.of(movieDetailCache.get(id));
         }
+
         if (savedMoviesMap.containsKey(id)) {
             return Optional.of(savedMoviesMap.get(id));
         }
 
-        // 2. Query TMDB if it is a TMDB identifier
-        if (id.startsWith("tmdb-")) {
-            try {
-                int tmdbId = Integer.parseInt(id.substring(5));
-                Optional<Movie> detail = tmdbClient.getMovieDetails(tmdbId);
-                detail.ifPresent(m -> movieDetailCache.put(id, m));
-                if (detail.isPresent()) {
-                    return detail;
-                }
-            } catch (Exception ignored) {}
-        }
-
-        // 3. Fallback to mock catalog
-        return fallbackRepository.getMovieById(id);
+        return isLiveMode()
+                ? Optional.empty()
+                : fallbackRepository.getMovieById(id);
     }
 
     @Override
@@ -116,7 +141,14 @@ public class TmdbCinemaRepository implements CinemaRepository {
             System.err.println("[AfterCredits] TMDB Search unavailable (" + e.getMessage() + "). Falling back to offline catalogue.");
         }
 
-        return fallbackRepository.searchMovies(cleanQuery, cleanGenre);
+        if (!isLiveMode()) {
+            return filterByGenre(
+                    fallbackRepository.searchMovies(cleanQuery, cleanGenre),
+                    cleanGenre
+            );
+        }
+
+        return java.util.Collections.emptyList();
     }
 
     @Override
@@ -127,24 +159,95 @@ public class TmdbCinemaRepository implements CinemaRepository {
                 for (Movie m : trending) {
                     movieDetailCache.putIfAbsent(m.id(), m);
                 }
-                return trending.stream().limit(6).collect(Collectors.toList());
+                return trending;
             }
         } catch (Exception e) {
             System.err.println("[AfterCredits] Trending unavailable from TMDB (" + e.getMessage() + "). Using offline trending.");
         }
 
-        return fallbackRepository.getTrendingMovies();
+        return java.util.Collections.emptyList();
+    }
+
+    @Override
+    public List<Movie> getPopularMovies() {
+        try {
+            List<Movie> movies = tmdbClient.getPopularMovies();
+            if (!movies.isEmpty()) {
+                for (Movie m : movies) {
+                    movieDetailCache.putIfAbsent(m.id(), m);
+                }
+                return movies;
+            }
+        } catch (Exception e) {
+            System.err.println("[AfterCredits] Popular movies unavailable from TMDB (" + e.getMessage() + "). Using offline catalogue.");
+        }
+
+        return java.util.Collections.emptyList();
+    }
+
+    @Override
+    public List<Movie> getTopRatedMovies() {
+        try {
+            List<Movie> movies = tmdbClient.getTopRatedMovies();
+            if (!movies.isEmpty()) {
+                for (Movie m : movies) {
+                    movieDetailCache.putIfAbsent(m.id(), m);
+                }
+                return movies;
+            }
+        } catch (Exception e) {
+            System.err.println("[AfterCredits] Top rated movies unavailable from TMDB (" + e.getMessage() + "). Using offline catalogue.");
+        }
+
+        return java.util.Collections.emptyList();
+    }
+
+    @Override
+    public List<Movie> getNowPlayingMovies() {
+        try {
+            List<Movie> movies = tmdbClient.getNowPlayingMovies();
+            if (!movies.isEmpty()) {
+                for (Movie m : movies) {
+                    movieDetailCache.putIfAbsent(m.id(), m);
+                }
+                return movies;
+            }
+        } catch (Exception e) {
+            System.err.println("[AfterCredits] Now playing movies unavailable from TMDB (" + e.getMessage() + "). Using offline catalogue.");
+        }
+
+        return java.util.Collections.emptyList();
+    }
+
+    @Override
+    public List<Movie> getUpcomingMovies() {
+        try {
+            List<Movie> movies = tmdbClient.getUpcomingMovies();
+            if (!movies.isEmpty()) {
+                for (Movie m : movies) {
+                    movieDetailCache.putIfAbsent(m.id(), m);
+                }
+                return movies;
+            }
+        } catch (Exception e) {
+            System.err.println("[AfterCredits] Upcoming movies unavailable from TMDB (" + e.getMessage() + "). Using offline catalogue.");
+        }
+
+        return java.util.Collections.emptyList();
     }
 
     @Override
     public Movie getSpotlightMovie() {
         List<Movie> trending = getTrendingMovies();
         if (!trending.isEmpty()) {
-            Movie first = trending.getFirst();
-            // Enrich with full details (director, backdrop) if possible
-            return getMovieById(first.id()).orElse(first);
+            // Use the live trending record directly for the Home hero.
+            // Avoid a second network request that can fail and trigger
+            // an unrelated offline/fallback movie.
+            return trending.getFirst();
         }
-        return fallbackRepository.getSpotlightMovie();
+        return isLiveMode()
+                ? null
+                : fallbackRepository.getSpotlightMovie();
     }
 
     private List<Movie> filterByGenre(List<Movie> list, String genre) {

@@ -26,6 +26,7 @@ public class DiscoverView extends JPanel {
     private final AtomicInteger searchSequence = new AtomicInteger(0);
 
     private JTextField searchField;
+    private JComboBox<String> genreSelector;
     private JPanel gridPanel;
     private JScrollPane scrollPane;
 
@@ -100,6 +101,22 @@ public class DiscoverView extends JPanel {
 
         JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         rightPanel.setOpaque(false);
+        String[] genres = {
+            "All genres", "Action", "Adventure", "Animation", "Comedy",
+            "Crime", "Documentary", "Drama", "Family", "Fantasy",
+            "History", "Horror", "Music", "Mystery", "Romance",
+            "Sci-Fi", "TV Movie", "Thriller", "War", "Western"
+        };
+
+        genreSelector = new JComboBox<>(genres);
+        genreSelector.setFont(ThemeManager.FONT_SECONDARY);
+        genreSelector.setPreferredSize(new Dimension(145, 40));
+        genreSelector.setBackground(ThemeManager.BG_INPUT);
+        genreSelector.setForeground(ThemeManager.TEXT_PRIMARY);
+        genreSelector.addActionListener(e -> triggerAsyncSearch());
+
+        rightPanel.add(genreSelector);
+        rightPanel.add(Box.createHorizontalStrut(10));
         rightPanel.add(searchContainer);
 
         header.add(rightPanel, BorderLayout.EAST);
@@ -108,6 +125,10 @@ public class DiscoverView extends JPanel {
 
     private void triggerAsyncSearch() {
         String query = searchField.getText();
+        String selectedGenre = (String) genreSelector.getSelectedItem();
+        String genre = selectedGenre == null || "All genres".equals(selectedGenre)
+                ? "All"
+                : selectedGenre;
         final int currentSeq = searchSequence.incrementAndGet();
 
         gridPanel.removeAll();
@@ -118,7 +139,7 @@ public class DiscoverView extends JPanel {
         SwingWorker<List<Movie>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<Movie> doInBackground() {
-                return repository.searchMovies(query, "All");
+                return repository.searchMovies(query, genre);
             }
 
             @Override

@@ -17,6 +17,36 @@ import static org.junit.jupiter.api.Assertions.*;
 class TmdbApiClientTest {
 
     @Test
+    void testUpcomingMoviesDateWindow() {
+        TmdbApiClient client = new TmdbApiClient("mock_key");
+        java.time.LocalDate today = java.time.LocalDate.of(2026, 11, 1);
+
+        List<Movie> movies = List.of(
+                testMovie("today", "2026-11-01"),
+                testMovie("day90", "2027-01-30"),
+                testMovie("day91", "2027-01-31"),
+                testMovie("past", "2026-10-31"),
+                testMovie("invalid", "not-a-date"),
+                testMovie("missing", "")
+        );
+
+        List<Movie> filtered = client.filterUpcomingMovies(movies, today);
+
+        assertEquals(2, filtered.size());
+        assertEquals("today", filtered.get(0).id());
+        assertEquals("day90", filtered.get(1).id());
+    }
+
+    private Movie testMovie(String id, String releaseDate) {
+        return new Movie(
+                id, 1, id, id, 2026, releaseDate,
+                "Director", List.of(), List.of(), 0.0, 0.0, 0,
+                0, "", "", null, null, null, false
+        );
+    }
+
+
+    @Test
     void testMissingCredentialsGracefulHandling() throws Exception {
         TmdbApiClient emptyClient = new TmdbApiClient("");
         assertFalse(emptyClient.hasApiKey(), "Client should report no API key when initialized with empty string");

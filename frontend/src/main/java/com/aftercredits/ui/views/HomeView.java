@@ -57,14 +57,28 @@ public class HomeView extends JPanel {
         contentPanel.add(new HeroBannerPanel(repository.getSpotlightMovie()));
         contentPanel.add(Box.createVerticalStrut(ThemeManager.SPACING_XXL));
 
-        // 3. Horizontal Movie Rows
-        contentPanel.add(new HorizontalMovieRow("Trending Cinephile Picks", repository.getTrendingMovies(), onMovieSelected));
-        contentPanel.add(Box.createVerticalStrut(ThemeManager.SPACING_XXL));
-        contentPanel.add(new HorizontalMovieRow("From Your Watchlist", repository.getWatchlist(), onMovieSelected));
+        // 3. Cinematic movie catalogue rails
+        addMovieRow(contentPanel, "Trending Now", repository.getTrendingMovies());
+        addMovieRow(contentPanel, "Popular This Week", repository.getPopularMovies());
+        addMovieRow(contentPanel, "Top Rated", repository.getTopRatedMovies());
+        addMovieRow(contentPanel, "Now Playing", repository.getNowPlayingMovies());
+        addMovieRow(contentPanel, "Coming Soon", repository.getUpcomingMovies());
+
+        // 4. Personal rail
+        addMovieRow(contentPanel, "From Your Watchlist", repository.getWatchlist());
 
         // Wrap in a styled scroll pane
         JScrollPane scrollPane = ThemeManager.createStyledScrollPane(contentPanel);
         add(scrollPane, BorderLayout.CENTER);
+    }
+
+    private void addMovieRow(JPanel contentPanel, String title, java.util.List<Movie> movies) {
+        if (movies == null || movies.isEmpty()) {
+            return;
+        }
+
+        contentPanel.add(new HorizontalMovieRow(title, movies, onMovieSelected));
+        contentPanel.add(Box.createVerticalStrut(ThemeManager.SPACING_XXL));
     }
 
     private JPanel createHeaderSection() {
@@ -114,6 +128,20 @@ public class HomeView extends JPanel {
         private Image backdropImage;
 
         public HeroBannerPanel(Movie movie) {
+            if (movie == null) {
+                JLabel unavailable = new JLabel(
+                        "<html><div style='text-align:center'>" +
+                        "<b>Featured spotlight unavailable</b><br>" +
+                        "TMDB could not be reached right now. Please try again shortly." +
+                        "</div></html>",
+                        javax.swing.SwingConstants.CENTER
+                );
+                unavailable.setForeground(ThemeManager.TEXT_MUTED);
+                unavailable.setFont(ThemeManager.FONT_SECTION_HEADING);
+                add(unavailable, BorderLayout.CENTER);
+                return;
+            }
+
             setLayout(new BorderLayout());
             setOpaque(false);
             setPreferredSize(new Dimension(800, 380));

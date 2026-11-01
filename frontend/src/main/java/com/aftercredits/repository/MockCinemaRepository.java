@@ -459,6 +459,32 @@ public class MockCinemaRepository implements CinemaRepository {
     }
 
     @Override
+    public List<Movie> getPopularMovies() {
+        return movies.stream()
+                .sorted((a, b) -> Double.compare(b.rating(), a.rating()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Movie> getTopRatedMovies() {
+        return movies.stream()
+                .sorted((a, b) -> Double.compare(b.rating(), a.rating()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Movie> getNowPlayingMovies() {
+        return new ArrayList<>(movies);
+    }
+
+    @Override
+    public List<Movie> getUpcomingMovies() {
+        return movies.stream()
+                .sorted((a, b) -> Integer.compare(b.year(), a.year()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public Movie getSpotlightMovie() {
         return getMovieById("mov-5").orElse(movies.getFirst());
     }
