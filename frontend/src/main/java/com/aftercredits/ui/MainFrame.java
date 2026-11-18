@@ -31,6 +31,10 @@ public class MainFrame extends JFrame {
     private final JPanel cardsPanel;
     private final Sidebar sidebar;
     private final CinemaRepository repository;
+    private final HomeView homeView;
+    private final MyCinemaView myCinemaView;
+    private final ProfileView profileView;
+    private final SettingsView settingsView;
     private String lastScreenKey = Sidebar.NAV_HOME;
 
     public MainFrame(CinemaRepository repository) {
@@ -50,22 +54,20 @@ public class MainFrame extends JFrame {
         this.cardsPanel.setBackground(ThemeManager.BG_PRIMARY);
 
         // Instantiate the core views
-        // Note: For HomeView, we need to pass a callback so clicking a movie opens details.
-        // We'll update HomeView later if needed, but for Discover and MyCinema, we can pass it now.
-        HomeView homeView = new HomeView(repository, this::openMovieDetails); 
+        this.homeView = new HomeView(repository, this::openMovieDetails); 
         DiscoverView discoverView = new DiscoverView(repository, this::openMovieDetails);
-        MyCinemaView myCinemaView = new MyCinemaView(repository, this::openMovieDetails);
-        ProfileView profileView = new ProfileView(repository);
+        this.myCinemaView = new MyCinemaView(repository, this::openMovieDetails);
+        this.profileView = new ProfileView(repository, this::reloadUserSession);
         
         ReviewsView reviewsView = new ReviewsView(repository);
         FilmRoomView filmRoomView = new FilmRoomView(repository);
         GroupsView groupsView = new GroupsView(repository);
-        SettingsView settingsView = new SettingsView(repository, this::changeTheme);
+        this.settingsView = new SettingsView(repository, this::changeTheme, this::reloadUserSession);
 
         // Register main views
         cardsPanel.add(homeView, Sidebar.NAV_HOME);
         cardsPanel.add(discoverView, Sidebar.NAV_DISCOVER);
-        cardsPanel.add(myCinemaView, Sidebar.NAV_MY_CINEMA); // Register only once
+        cardsPanel.add(myCinemaView, Sidebar.NAV_MY_CINEMA);
 
         // Map Community sections
         cardsPanel.add(filmRoomView, Sidebar.NAV_FILM_ROOM);
@@ -77,7 +79,7 @@ public class MainFrame extends JFrame {
         cardsPanel.add(settingsView, Sidebar.NAV_SETTINGS);
 
         // 2. Left Navigation Sidebar
-        this.sidebar = new Sidebar(repository, this::navigateToScreen);
+        this.sidebar = new Sidebar(repository, this::navigateToScreen, this::openLoginDialog);
 
         // Assemble root window
         add(sidebar, BorderLayout.WEST);
@@ -85,6 +87,33 @@ public class MainFrame extends JFrame {
 
         pack();
         setLocationRelativeTo(null); // Center window on screen
+    }
+
+    /**
+     * Opens the in-app authentication dialog and refreshes active views when completed.
+     */
+    public void openLoginDialog() {
+        LoginFrame.showAsDialog(this, session -> {
+            reloadUserSession();
+        });
+    }
+
+    /**
+     * Synchronizes user profile and identity across all visible components.
+     */
+    public void reloadUserSession() {
+        if (sidebar != null) {
+            sidebar.refreshUser();
+        }
+        if (homeView != null) {
+            homeView.refresh();
+        }
+        if (profileView != null) {
+            profileView.refresh();
+        }
+        if (settingsView != null) {
+            settingsView.refresh();
+        }
     }
 
     /**
@@ -120,6 +149,9 @@ public class MainFrame extends JFrame {
         for (java.awt.Component comp : cardsPanel.getComponents()) {
             if (comp instanceof MyCinemaView myCinema && comp.isVisible()) {
                 myCinema.selectTab(screenKey);
+                myCinema.refresh();
+            } else if (comp instanceof HomeView home && comp.isVisible()) {
+                home.refresh();
             }
         }
     }
@@ -138,6 +170,8 @@ public class MainFrame extends JFrame {
         }
         
         MovieDetailView detailView = new MovieDetailView(movie, repository, () -> {
+            if (homeView != null) homeView.refresh();
+            if (myCinemaView != null) myCinemaView.refresh();
             navigateToScreen(lastScreenKey); // Go back
         });
         

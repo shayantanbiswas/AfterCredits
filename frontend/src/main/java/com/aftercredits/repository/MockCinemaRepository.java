@@ -1,10 +1,12 @@
 package com.aftercredits.repository;
 
+import com.aftercredits.model.CustomWatchlist;
 import com.aftercredits.model.FilmRoomTopic;
 import com.aftercredits.model.Movie;
 import com.aftercredits.model.MovieGroup;
 import com.aftercredits.model.Review;
 import com.aftercredits.model.UserProfile;
+import com.aftercredits.model.VideoClip;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -23,6 +25,7 @@ import java.util.stream.Collectors;
  */
 public class MockCinemaRepository implements CinemaRepository {
 
+    private final WatchlistManager watchlistManager = WatchlistManager.getInstance();
     private final List<Movie> movies = new ArrayList<>();
     private final Set<String> watchlistIds = new LinkedHashSet<>();
     private final Map<String, Double> watchedMovieRatings = new LinkedHashMap<>();
@@ -500,14 +503,15 @@ public class MockCinemaRepository implements CinemaRepository {
 
     @Override
     public List<Movie> getWatchlist() {
+        Set<String> ids = watchlistManager.getDefaultWatchlistIds();
         return movies.stream()
-                .filter(m -> watchlistIds.contains(m.id()))
+                .filter(m -> ids.contains(m.id()))
                 .collect(Collectors.toList());
     }
 
     @Override
     public boolean isWatchlisted(String movieId) {
-        return watchlistIds.contains(movieId);
+        return watchlistManager.isDefaultWatchlisted(movieId);
     }
 
     @Override
@@ -517,18 +521,84 @@ public class MockCinemaRepository implements CinemaRepository {
 
     @Override
     public void addToWatchlist(String movieId) {
-        watchlistIds.add(movieId);
+        watchlistManager.addToDefaultWatchlist(movieId);
     }
 
     @Override
     public void removeFromWatchlist(String movieId) {
-        watchlistIds.remove(movieId);
+        watchlistManager.removeFromDefaultWatchlist(movieId);
     }
 
     @Override
     public void logMovieAsWatched(String movieId, double userRating) {
         watchedMovieRatings.put(movieId, userRating);
-        watchlistIds.remove(movieId);
+        watchlistManager.removeFromDefaultWatchlist(movieId);
+    }
+
+    // --- Custom Watchlists ---
+
+    @Override
+    public List<CustomWatchlist> getCustomWatchlists() {
+        return watchlistManager.getCustomWatchlists();
+    }
+
+    @Override
+    public Optional<CustomWatchlist> getCustomWatchlist(String id) {
+        return watchlistManager.getCustomWatchlist(id);
+    }
+
+    @Override
+    public CustomWatchlist createCustomWatchlist(String name, String description, boolean isPrivate) {
+        return watchlistManager.createCustomWatchlist(name, description, isPrivate);
+    }
+
+    @Override
+    public boolean deleteCustomWatchlist(String id) {
+        return watchlistManager.deleteCustomWatchlist(id);
+    }
+
+    @Override
+    public boolean addMovieToCustomWatchlist(String watchlistId, String movieId) {
+        return watchlistManager.addMovieToCustomWatchlist(watchlistId, movieId);
+    }
+
+    @Override
+    public boolean removeMovieFromCustomWatchlist(String watchlistId, String movieId) {
+        return watchlistManager.removeMovieFromCustomWatchlist(watchlistId, movieId);
+    }
+
+    @Override
+    public boolean setCustomWatchlistPrivacy(String watchlistId, boolean isPrivate) {
+        return watchlistManager.setCustomWatchlistPrivacy(watchlistId, isPrivate);
+    }
+
+    @Override
+    public List<Movie> getMoviesForCustomWatchlist(String watchlistId) {
+        Optional<CustomWatchlist> wlOpt = watchlistManager.getCustomWatchlist(watchlistId);
+        if (wlOpt.isEmpty()) return Collections.emptyList();
+        List<String> movieIds = wlOpt.get().getMovieIds();
+        return movieIds.stream()
+                .map(this::getMovieById)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<CustomWatchlist> getWatchlistsContainingMovie(String movieId) {
+        return watchlistManager.getWatchlistsContainingMovie(movieId);
+    }
+
+    @Override
+    public List<VideoClip> getMoviePreviews(Movie movie) {
+        if (movie == null) return Collections.emptyList();
+        String title = movie.title();
+        return List.of(
+                new VideoClip("preview-" + movie.id() + "-1", title + " — Official Theatrical Trailer", null, "YouTube", "Trailer", true),
+                new VideoClip("preview-" + movie.id() + "-2", title + " — Official Teaser / First Look", null, "YouTube", "Teaser", true),
+                new VideoClip("preview-" + movie.id() + "-3", title + " — Exclusive Scene Preview", null, "YouTube", "Clip", false),
+                new VideoClip("preview-" + movie.id() + "-4", title + " — Behind The Scenes & Cast Featurette", null, "YouTube", "Featurette", false)
+        );
     }
 
     // --- Film Rooms Implementations ---

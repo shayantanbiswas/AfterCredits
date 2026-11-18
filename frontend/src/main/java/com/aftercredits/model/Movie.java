@@ -163,4 +163,13 @@ public record Movie(
         }
         return null;
     }
+
+    /**
+     * Generates a YouTube search link for the official trailer of this movie.
+     */
+    public String getTrailerUrl() {
+        String query = title + (year > 0 ? " " + year : "") + " official trailer";
+        return "https://www.youtube.com/results?search_query=" +
+                java.net.URLEncoder.encode(query, java.nio.charset.StandardCharsets.UTF_8);
+    }
 }

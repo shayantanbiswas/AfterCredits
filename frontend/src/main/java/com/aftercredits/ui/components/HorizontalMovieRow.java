@@ -14,8 +14,8 @@ import java.util.function.Consumer;
 public class HorizontalMovieRow extends JPanel {
 
     private static final int CARD_STEP = 214;
-    private static final int ANIMATION_STEP = 24;
-    private static final int ANIMATION_DELAY = 12;
+    private static final int ANIMATION_STEP = 32;   // Larger step per frame = faster, smoother feel
+    private static final int ANIMATION_DELAY = 16;  // ~60fps frame budget
 
     private final JScrollPane scrollPane;
     private final JPanel rowPanel;
@@ -108,15 +108,14 @@ public class HorizontalMovieRow extends JPanel {
     private JButton createArrowButton(String text) {
         JButton button = new JButton(text);
 
-        button.setFont(new Font("SansSerif", Font.BOLD, 28));
+        button.setFont(new Font("SansSerif", Font.BOLD, 30));
         button.setForeground(ThemeManager.TEXT_PRIMARY);
         button.setBackground(new Color(15, 18, 24, 190));
         button.setOpaque(true);
-        button.setBorder(
-                BorderFactory.createLineBorder(
-                        new Color(255, 255, 255, 35)
-                )
-        );
+        button.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(255, 255, 255, 42), 1, true),
+                BorderFactory.createEmptyBorder(4, 7, 4, 7)
+        ));
         button.setFocusPainted(false);
         button.setContentAreaFilled(true);
         button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -146,8 +145,8 @@ public class HorizontalMovieRow extends JPanel {
 
         scrollPane.setBounds(0, 0, width, height);
 
-        int buttonWidth = 42;
-        int buttonHeight = 64;
+        int buttonWidth = 44;
+        int buttonHeight = 58;
         int y = Math.max(0, (height - buttonHeight) / 2);
 
         left.setBounds(8, y, buttonWidth, buttonHeight);
@@ -201,14 +200,10 @@ public class HorizontalMovieRow extends JPanel {
         }
 
         int difference = animationTarget - current;
-        int movement =
-                Math.min(
-                        ANIMATION_STEP,
-                        Math.max(1, Math.abs(difference) / 3)
-                );
+        // Ease-out: move a larger fraction of remaining distance each frame,
+        // clamped to ANIMATION_STEP so it never jumps past the target.
+        int movement = Math.max(1, Math.min(ANIMATION_STEP, (int) (Math.abs(difference) * 0.35)));
 
-        bar.setValue(
-                current + (difference > 0 ? movement : -movement)
-        );
+        bar.setValue(current + (difference > 0 ? movement : -movement));
     }
 }

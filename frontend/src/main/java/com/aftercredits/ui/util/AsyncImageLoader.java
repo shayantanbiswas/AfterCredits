@@ -170,16 +170,17 @@ public final class AsyncImageLoader {
     }
 
     /**
-     * High-quality bicubic image scaling.
+     * Fast high-quality image scaling performed entirely off the EDT.
+     * Draws directly into a Graphics2D context (bilinear interpolation) which
+     * is significantly faster than Image.SCALE_SMOOTH and avoids EDT blocking.
      */
     private static ImageIcon scaleImage(BufferedImage src, int width, int height) {
-        Image scaled = src.getScaledInstance(width, height, Image.SCALE_SMOOTH);
         BufferedImage buffered = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2 = buffered.createGraphics();
         g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2.drawImage(scaled, 0, 0, null);
+        g2.drawImage(src, 0, 0, width, height, null);
         g2.dispose();
         return new ImageIcon(buffered);
     }

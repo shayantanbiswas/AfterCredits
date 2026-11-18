@@ -39,33 +39,70 @@ public class AuthService {
         );
 
         Account savedAccount = accountRepository.save(account);
-        String token = jwtService.generateToken(
-            savedAccount.getId(),
-            savedAccount.getEmail()
-        );
+        String token = jwtService.generateToken(savedAccount.getId(), savedAccount.getEmail());
 
         return AuthResponse.from(savedAccount, token);
     }
 
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
-        String email = normalizeEmail(request.email());
+        String identifier = request.email().trim();
 
-        Account account = accountRepository.findByEmail(email)
+        Account account = accountRepository.findByEmail(identifier.toLowerCase(Locale.ROOT))
+            .or(() -> accountRepository.findByDisplayNameIgnoreCase(identifier))
             .orElseThrow(InvalidCredentialsException::new);
 
-        if (!passwordEncoder.matches(
-            request.password(),
-            account.getPasswordHash()
-        )) {
+        if (account.getProvider() != Account.Provider.LOCAL) {
             throw new InvalidCredentialsException();
         }
 
-        String token = jwtService.generateToken(
-            account.getId(),
-            account.getEmail()
-        );
+        if (!passwordEncoder.matches(request.password(), account.getPasswordHash())) {
+            throw new InvalidCredentialsException();
+        }
 
+        String subject = account.getEmail() != null ? account.getEmail() : account.getDisplayName();
+        String token = jwtService.generateToken(account.getId(), subject);
+        return AuthResponse.from(account, token);
+    }
+
+    @Transactional
+    public AuthResponse oauthLogin(OAuthLoginRequest request) {
+        Account.Provider provider = Account.Provider.valueOf(request.provider().toUpperCase());
+
+        Account account = accountRepository
+            .findByProviderAndProviderId(provider, request.providerId())
+            .orElseGet(() -> {
+                Account newAccount = new Account(
+                    request.displayName().trim(),
+                    provider,
+                    request.providerId(),
+                    request.email() != null ? normalizeEmail(request.email()) : null
+                );
+                return accountRepository.save(newAccount);
+            });
+
+        String subject = account.getEmail() != null
+            ? account.getEmail()
+            : "oauth:" + provider + ":" + request.providerId();
+        String token = jwtService.generateToken(account.getId(), subject);
+        return AuthResponse.from(account, token);
+    }
+
+    @Transactional
+    public AuthResponse guestLogin(GuestLoginRequest request) {
+        Account account = accountRepository
+            .findByProviderAndProviderId(Account.Provider.GUEST, request.guestId())
+            .orElseGet(() -> {
+                Account newAccount = new Account(
+                    request.displayName(),
+                    Account.Provider.GUEST,
+                    request.guestId(),
+                    null
+                );
+                return accountRepository.save(newAccount);
+            });
+
+        String token = jwtService.generateToken(account.getId(), "guest:" + request.guestId());
         return AuthResponse.from(account, token);
     }
 
@@ -77,7 +114,6 @@ public class AuthService {
     public CurrentAccountResponse getCurrentAccount(String email) {
         Account account = accountRepository.findByEmail(normalizeEmail(email))
             .orElseThrow(InvalidCredentialsException::new);
-
         return CurrentAccountResponse.from(account);
     }
 }

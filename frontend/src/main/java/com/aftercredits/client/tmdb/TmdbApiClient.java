@@ -1,6 +1,7 @@
 package com.aftercredits.client.tmdb;
 
 import com.aftercredits.model.Movie;
+import com.aftercredits.model.VideoClip;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -53,14 +54,25 @@ public class TmdbApiClient {
     );
 
     private final String apiKey;
-    private final HttpClient httpClient;
+    private volatile HttpClient httpClient;
 
     public TmdbApiClient(String apiKey) {
         this.apiKey = (apiKey == null) ? "" : apiKey.trim();
-        this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(5))
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build();
+        this.httpClient = null;
+    }
+
+    private HttpClient getHttpClient() {
+        if (httpClient == null) {
+            synchronized (this) {
+                if (httpClient == null) {
+                    httpClient = HttpClient.newBuilder()
+                            .connectTimeout(Duration.ofSeconds(5))
+                            .followRedirects(HttpClient.Redirect.NORMAL)
+                            .build();
+                }
+            }
+        }
+        return httpClient;
     }
 
     /**
@@ -132,6 +144,147 @@ public class TmdbApiClient {
         }
     }
 
+    /**
+     * Resolves the primary YouTube trailer video key for the movie from TMDB videos.
+     * Returns null if no trailer is found or TMDB is unreachable.
+     */
+    public String getTrailerKey(int tmdbId) {
+        if (!hasApiKey() || tmdbId <= 0) {
+            return null;
+        }
+
+        try {
+            String url = buildRequestUrl("/movie/" + tmdbId + "/videos?language=en-US");
+            String json = executeGet(url);
+            return parseTrailerKey(json);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Fetches all video previews, trailers, teasers, and clips for a given movie.
+     */
+    public List<VideoClip> getMovieVideos(int tmdbId) {
+        if (!hasApiKey() || tmdbId <= 0) {
+            return Collections.emptyList();
+        }
+
+        try {
+            String url = buildRequestUrl("/movie/" + tmdbId + "/videos?language=en-US");
+            String json = executeGet(url);
+            return parseVideoClips(json);
+        } catch (Exception e) {
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Parses video clips from TMDB videos response.
+     */
+    public static List<VideoClip> parseVideoClips(String jsonString) {
+        if (jsonString == null || jsonString.isBlank()) {
+            return Collections.emptyList();
+        }
+
+        try {
+            JsonObject root = JsonParser.parseString(jsonString).getAsJsonObject();
+            JsonArray results = null;
+
+            if (root.has("videos") && root.get("videos").isJsonObject()) {
+                JsonObject videosObj = root.getAsJsonObject("videos");
+                if (videosObj.has("results") && videosObj.get("results").isJsonArray()) {
+                    results = videosObj.getAsJsonArray("results");
+                }
+            } else if (root.has("results") && root.get("results").isJsonArray()) {
+                results = root.getAsJsonArray("results");
+            }
+
+            if (results == null || results.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            List<VideoClip> clips = new ArrayList<>();
+            for (JsonElement elem : results) {
+                if (!elem.isJsonObject()) continue;
+                JsonObject v = elem.getAsJsonObject();
+
+                String id = getString(v, "id", "");
+                String name = getString(v, "name", "");
+                String site = getString(v, "site", "");
+                String type = getString(v, "type", "");
+                String key = getString(v, "key", "");
+                boolean official = v.has("official") && v.get("official").getAsBoolean();
+
+                if ("YouTube".equalsIgnoreCase(site) && !key.isBlank()) {
+                    clips.add(new VideoClip(id, name, key, site, type, official));
+                }
+            }
+            return clips;
+        } catch (Exception e) {
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Parses the video key from TMDB videos response. Prefers official trailers on YouTube.
+     */
+    public static String parseTrailerKey(String jsonString) {
+        if (jsonString == null || jsonString.isBlank()) {
+            return null;
+        }
+
+        try {
+            JsonObject root = JsonParser.parseString(jsonString).getAsJsonObject();
+            JsonArray results = null;
+
+            if (root.has("videos") && root.get("videos").isJsonObject()) {
+                JsonObject videosObj = root.getAsJsonObject("videos");
+                if (videosObj.has("results") && videosObj.get("results").isJsonArray()) {
+                    results = videosObj.getAsJsonArray("results");
+                }
+            } else if (root.has("results") && root.get("results").isJsonArray()) {
+                results = root.getAsJsonArray("results");
+            }
+
+            if (results == null || results.isEmpty()) {
+                return null;
+            }
+
+            String fallbackKey = null;
+
+            for (JsonElement elem : results) {
+                if (!elem.isJsonObject()) continue;
+                JsonObject v = elem.getAsJsonObject();
+
+                String site = getString(v, "site", "");
+                String type = getString(v, "type", "");
+                String key = getString(v, "key", "");
+
+                if (!"YouTube".equalsIgnoreCase(site) || key.isBlank()) {
+                    continue;
+                }
+
+                boolean official = v.has("official") && v.get("official").getAsBoolean();
+
+                if ("Trailer".equalsIgnoreCase(type)) {
+                    if (official) {
+                        return key; // Best possible match
+                    }
+                    if (fallbackKey == null) {
+                        fallbackKey = key;
+                    }
+                } else if ("Teaser".equalsIgnoreCase(type) && fallbackKey == null) {
+                    fallbackKey = key;
+                }
+            }
+
+            return fallbackKey;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
     private String executeGet(String url) throws Exception {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
@@ -141,7 +294,7 @@ public class TmdbApiClient {
                 .GET()
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = getHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() == 200) {
             return response.body();

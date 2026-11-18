@@ -26,6 +26,16 @@ public class AuthController {
         return authService.login(request);
     }
 
+    @PostMapping("/oauth")
+    public AuthResponse oauthLogin(@Valid @RequestBody OAuthLoginRequest request) {
+        return authService.oauthLogin(request);
+    }
+
+    @PostMapping("/guest")
+    public AuthResponse guestLogin(@Valid @RequestBody GuestLoginRequest request) {
+        return authService.guestLogin(request);
+    }
+
     @GetMapping("/me")
     public CurrentAccountResponse me(Authentication authentication) {
         return authService.getCurrentAccount(authentication.getName());

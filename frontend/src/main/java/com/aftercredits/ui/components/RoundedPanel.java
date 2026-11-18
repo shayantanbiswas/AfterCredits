@@ -26,10 +26,17 @@ public class RoundedPanel extends JPanel {
         this.arc = arc;
         this.borderColor = borderColor;
         setOpaque(false);
+        // Double-buffer all RoundedPanels so anti-aliased painting doesn't flicker
+        setDoubleBuffered(true);
     }
 
     public void setBackgroundColor(Color backgroundColor) {
         this.backgroundColor = backgroundColor;
+        repaint();
+    }
+
+    public void setBorderColor(Color borderColor) {
+        this.borderColor = borderColor;
         repaint();
     }
 

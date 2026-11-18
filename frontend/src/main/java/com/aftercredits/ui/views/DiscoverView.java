@@ -164,6 +164,36 @@ public class DiscoverView extends JPanel {
                     gridPanel.repaint();
                 } catch (Exception ex) {
                     ex.printStackTrace();
+                    gridPanel.removeAll();
+
+                    JPanel errorPanel = new JPanel();
+                    errorPanel.setLayout(new BoxLayout(errorPanel, BoxLayout.Y_AXIS));
+                    errorPanel.setOpaque(false);
+                    errorPanel.setBorder(BorderFactory.createEmptyBorder(80, 20, 80, 20));
+
+                    JLabel errorTitle = new JLabel("Unable to load movies");
+                    errorTitle.setFont(ThemeManager.FONT_BUTTON);
+                    errorTitle.setForeground(ThemeManager.TEXT_PRIMARY);
+                    errorTitle.setAlignmentX(CENTER_ALIGNMENT);
+
+                    JLabel errorHint = new JLabel("Check your connection and try again.");
+                    errorHint.setFont(ThemeManager.FONT_SECONDARY);
+                    errorHint.setForeground(ThemeManager.TEXT_MUTED);
+                    errorHint.setAlignmentX(CENTER_ALIGNMENT);
+
+                    JButton retryButton = ThemeManager.createAccentButton("Try Again");
+                    retryButton.setAlignmentX(CENTER_ALIGNMENT);
+                    retryButton.addActionListener(event -> triggerAsyncSearch());
+
+                    errorPanel.add(errorTitle);
+                    errorPanel.add(Box.createVerticalStrut(8));
+                    errorPanel.add(errorHint);
+                    errorPanel.add(Box.createVerticalStrut(16));
+                    errorPanel.add(retryButton);
+
+                    gridPanel.add(errorPanel);
+                    gridPanel.revalidate();
+                    gridPanel.repaint();
                 }
             }
         };

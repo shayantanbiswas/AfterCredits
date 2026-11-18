@@ -23,6 +23,7 @@ class TmdbCinemaRepositoryTest {
         // Empty token simulates offline demo mode
         TmdbApiClient offlineClient = new TmdbApiClient("");
         repository = new TmdbCinemaRepository(offlineClient);
+        repository.addToWatchlist("mov-1");
     }
 
     @Test

@@ -8,6 +8,7 @@ import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JTextField;
 import javax.swing.UIManager;
 import javax.swing.border.Border;
 import java.awt.Color;
@@ -343,6 +344,22 @@ public final class ThemeManager {
     // ═══════════════════════════════════════════════════════════════
 
     /**
+     * Creates a consistently styled text field for dialogs and input forms.
+     */
+    public static JTextField createStyledTextField() {
+        JTextField field = new JTextField();
+        field.setFont(FONT_BODY);
+        field.setBackground(BG_INPUT);
+        field.setForeground(TEXT_PRIMARY);
+        field.setCaretColor(ACCENT_GOLD);
+        field.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_COLOR, 1, true),
+                BorderFactory.createEmptyBorder(8, 12, 8, 12)
+        ));
+        return field;
+    }
+
+    /**
      * Creates a rounded panel with anti-aliased corners and configurable background.
      */
     public static JPanel createRoundedPanel(Color background, int arc) {
@@ -492,15 +509,19 @@ public final class ThemeManager {
      * Configures a JScrollPane with consistent styling — no border, themed background,
      * hidden horizontal scrollbar, smooth vertical scrolling, and mouse-wheel forwarding
      * so that wheel events over child components (cards, labels, panels) are not swallowed.
+     * Unit increment is set to 32 for a 60fps-feel without micro-lag.
      */
     public static javax.swing.JScrollPane createStyledScrollPane(java.awt.Component view) {
         javax.swing.JScrollPane sp = new javax.swing.JScrollPane(view);
         sp.setBorder(null);
+        sp.setBackground(BG_PRIMARY);
         sp.getViewport().setBackground(BG_PRIMARY);
-        sp.getVerticalScrollBar().setUnitIncrement(16);
+        // Smooth scrolling: 32px per click gives a natural, non-laggy feel
+        sp.getVerticalScrollBar().setUnitIncrement(32);
+        sp.getVerticalScrollBar().setBlockIncrement(160);
         sp.setHorizontalScrollBarPolicy(javax.swing.JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        // Fix Priority 1: install wheel-event forwarder so clicks over child components scroll correctly
-        // Wheel forwarding disabled temporarily to prevent nested-scroll jitter.
+        // Enable double-buffering on the viewport for tear-free rendering
+        sp.getViewport().setScrollMode(javax.swing.JViewport.BLIT_SCROLL_MODE);
         return sp;
     }
 }

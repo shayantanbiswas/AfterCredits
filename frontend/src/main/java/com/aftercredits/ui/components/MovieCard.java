@@ -42,11 +42,14 @@ public class MovieCard extends JPanel {
         this.onSelectCallback = onSelectCallback;
 
         setLayout(new BorderLayout());
-        setBackground(ThemeManager.BG_PRIMARY); 
+        setBackground(ThemeManager.BG_PRIMARY);
         setPreferredSize(new Dimension(204, 332));
         setMinimumSize(new Dimension(180, 290));
+        // Keep opaque=false so our custom paintComponent controls the background,
+        // but enable double-buffering so hover repaints don't cause jitter.
         setOpaque(false);
-        setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4)); // Tight cinematic card framing
+        setDoubleBuffered(true);
+        setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
         // 1. Top Poster Area (2:3 aspect ratio)
         add(createPosterContainer(), BorderLayout.CENTER);
@@ -122,7 +125,8 @@ public class MovieCard extends JPanel {
 
         // Movie Title (Single line, truncated with ellipsis if too long)
         JLabel titleLabel = new JLabel(movie.title());
-        titleLabel.setFont(ThemeManager.FONT_MOVIE_TITLE.deriveFont(14.5f));
+        titleLabel.setFont(ThemeManager.FONT_MOVIE_TITLE.deriveFont(java.awt.Font.BOLD, 14.5f));
+        titleLabel.setToolTipText(movie.title());
         titleLabel.setForeground(ThemeManager.TEXT_PRIMARY);
         titleLabel.setAlignmentX(LEFT_ALIGNMENT);
 
@@ -130,6 +134,7 @@ public class MovieCard extends JPanel {
         String metaText = movie.year() + " • " + movie.getFormattedDuration();
         JLabel metaLabel = new JLabel(metaText);
         metaLabel.setFont(ThemeManager.FONT_METADATA.deriveFont(11.5f));
+        metaLabel.setToolTipText(metaText);
         metaLabel.setForeground(ThemeManager.TEXT_MUTED);
         metaLabel.setAlignmentX(LEFT_ALIGNMENT);
 
@@ -167,14 +172,20 @@ public class MovieCard extends JPanel {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        // Draw subtle hover highlight behind the entire card
-        if (isHovered) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(ThemeManager.BG_CARD_HOVER);
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), ThemeManager.CARD_ARC + 4, ThemeManager.CARD_ARC + 4);
-            g2.dispose();
-        }
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        int arc = ThemeManager.CARD_ARC + 5;
+
+        // Rich card surface
+        g2.setColor(isHovered ? ThemeManager.BG_CARD_HOVER : ThemeManager.BG_CARD);
+        g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, arc, arc);
+
+        // Fine outline, shifting to cinema gold on hover
+        g2.setStroke(new java.awt.BasicStroke(isHovered ? 1.5f : 1f));
+        g2.setColor(isHovered ? ThemeManager.ACCENT_GOLD_MUTED : ThemeManager.BORDER_COLOR);
+        g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, arc, arc);
+
+        g2.dispose();
     }
 
     public Movie getMovie() {
